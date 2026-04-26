@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documents - Group 20</title>
+  <link rel="stylesheet" href="../css/style.css">
+
+  <style>
+    .documents-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      align-items: stretch;
+    }
+
+    .documents-card {
+      background: #f4f4f4;
+      border-radius: 18px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      padding: 32px;
+      border-top: 5px solid #d4af37;
+    }
+
+    .documents-card h2 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      font-size: 2rem;
+      color: #111;
+    }
+
+    .documents-card p {
+      margin-top: 0;
+      margin-bottom: 24px;
+      color: #444;
+      line-height: 1.6;
+      font-size: 1rem;
+    }
+
+    .document-links {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .document-links a {
+      display: block;
+      background: #ffffff;
+      color: #111;
+      text-decoration: none;
+      padding: 16px 18px;
+      border-radius: 12px;
+      border: 1px solid #e2e2e2;
+      font-weight: 700;
+      transition: 0.25s ease;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+    }
+
+    .document-links a:hover {
+      background: #d4af37;
+      color: #111;
+      transform: translateY(-2px);
+    }
+
+    .document-links .doc-subtext {
+      display: block;
+      font-weight: 400;
+      font-size: 0.92rem;
+      color: #555;
+      margin-top: 4px;
+    }
+
+    @media (max-width: 900px) {
+      .documents-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Documents</h1>
+    <p>Senior Design Group 20</p>
+  </div>
+
+  <div class="navbar">
+    <a href="../index.html">Home</a>
+    <a href="../about.html">About Us</a>
+    <a href="../docs/" class="active">Documents</a>
+    <a href="../videos/">Videos</a>
+  </div>
+
+  <div class="main-content">
+    <div class="documents-layout">
+
+      <section class="documents-card">
+        <h2>Senior Design 1</h2>
+        <p>
+          Browse all major deliverables and milestone documents completed during Senior Design 1.
+        </p>
+
+        <div class="document-links">
+          <a href="sd1/divide-and-conquer/">
+            Divide &amp; Conquer
+            <span class="doc-subtext">Project planning and task breakdown</span>
+          </a>
+
+          <a href="sd1/midterm-milestone/">
+            Midterm Milestone
+            <span class="doc-subtext">Mid-semester progress review and submission</span>
+          </a>
+
+          <a href="sd1/mini-demo/">
+            Mini Demo
+            <span class="doc-subtext">Demonstration materials and supporting content</span>
+          </a>
+
+          <a href="sd1/final-report/">
+            Final Report
+            <span class="doc-subtext">Complete Senior Design 1 final documentation</span>
+          </a>
+        </div>
+      </section>
+
+      <section class="documents-card">
+        <h2>Senior Design 2</h2>
+        <p>
+          Access current and upcoming reports, presentations, and final project materials for Senior Design 2.
+        </p>
+
+        <div class="document-links">
+          <a href="sd2/">
+            Senior Design 2 Folder
+            <span class="doc-subtext">Open the full SD2 directory and available materials</span>
+          </a>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</body>
+</html>

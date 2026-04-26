@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Senior Design Group 20</title>
+  <link rel="stylesheet" href="css/style.css">
+
+  <style>
+    .content-row {
+      display: flex;
+      gap: 30px;
+      align-items: flex-start;
+      margin-bottom: 30px;
+    }
+
+    .intro {
+      flex: 2;
+    }
+
+    .team-box {
+      flex: 1;
+      background: #f4f4f4;
+      border-radius: 18px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+      padding: 30px;
+      border-top: 5px solid #d4af37;
+    }
+
+    .team-box h2 {
+      margin-top: 0;
+      margin-bottom: 20px;
+      font-size: 2rem;
+    }
+
+    .team-member {
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .team-member:last-of-type {
+      border-bottom: none;
+      margin-bottom: 20px;
+      padding-bottom: 0;
+    }
+
+    .team-member h3 {
+      margin: 0 0 4px;
+      font-size: 1.2rem;
+    }
+
+    .team-member p {
+      margin: 0;
+      font-size: 1rem;
+      color: #444;
+      line-height: 1.5;
+    }
+
+    .team-link {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 12px 18px;
+      background: #d4af37;
+      color: #111;
+      text-decoration: none;
+      border-radius: 10px;
+      font-weight: 700;
+      transition: 0.25s ease;
+    }
+
+    .team-link:hover {
+      background: #b9972f;
+    }
+
+    .faculty-section-title {
+      margin-top: 10px;
+      margin-bottom: 20px;
+      font-size: 2rem;
+    }
+
+    @media (max-width: 900px) {
+      .content-row {
+        flex-direction: column;
+      }
+
+      .intro,
+      .team-box {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="header">
+    <h1>Senior Design Group 20</h1>
+    <p>F.R.O.G.S Water Purification System</p>
+  </div>
+
+  <div class="navbar">
+    <a href="index.html" class="active">Home</a>
+    <a href="about.html">About Us</a>
+    <a href="docs/">Documents</a>
+    <a href="videos/">Videos</a>
+  </div>
+
+  <div class="main-content">
+
+    <div class="content-row">
+
+      <section class="intro">
+        <h2>Project Overview</h2>
+        <p>
+          F.R.O.G.S is a senior design project centered around the development of a 
+          reverse osmosis water desalination system designed for off-grid environments. 
+          The system operates entirely on solar power, enabling sustainable and independent 
+          water purification without reliance on traditional infrastructure.
+        </p>
+        <p>
+          Integrated within the device is an array of sensors used to monitor critical 
+          water quality metrics such as total dissolved solids (TDS) and temperature. 
+          This data is processed and presented to the user in real time, providing clear 
+          insight into water safety and overall system performance.
+        </p>
+      </section>
+
+      <section class="team-box">
+        <h2>Meet the Team</h2>
+
+        <div class="team-member">
+          <h3>Glenn Garcia</h3>
+          <p>Computer Engineering</p>
+        </div>
+
+        <div class="team-member">
+          <h3>Caden Kohlmeier</h3>
+          <p>Electrical Engineering</p>
+        </div>
+
+        <div class="team-member">
+          <h3>Michael Lucas</h3>
+          <p>Electrical Engineering</p>
+        </div>
+
+        <div class="team-member">
+          <h3>Johnathan Yagers</h3>
+          <p>Computer Engineering</p>
+        </div>
+
+        <a href="about.html" class="team-link">Go to About Us Page</a>
+      </section>
+
+    </div>
+
+    <h2 class="faculty-section-title">Faculty Advisors</h2>
+
+    <section class="highlights">
+
+      <div class="card">
+        <h3>Dr. Chris Iannello</h3>
+        <p>
+          ECE Department<br>
+          Professor of Practice
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>Dr. Qifeng Li</h3>
+        <p>
+          ECE Department<br>
+          Associate Professor
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>Dr. Mike Borowczak</h3>
+        <p>
+          ECE Department<br>
+          Associate Professor
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>Dr. Wei Sun</h3>
+        <p>
+          ECE Department<br>
+          Associate Professor
+        </p>
+      </div>
+
+    </section>
+
+  </div>
+
+</body>
+</html>

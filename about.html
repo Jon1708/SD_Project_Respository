@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About Us | Senior Design Group 20</title>
+  <style>
+    :root {
+      --bg-dark: #0a0a0a;
+      --panel-dark: #161616;
+      --accent: #d4af37;
+      --text-dark: #111;
+      --text-light: #f7f7f7;
+      --card-bg: #f4f4f4;
+      --shadow: 0 8px 24px rgba(0,0,0,0.15);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Georgia, serif;
+      background: #dddddd;
+      color: var(--text-dark);
+    }
+
+    .header {
+      background: linear-gradient(180deg, #000 0%, #0c0c0c 100%);
+      color: var(--accent);
+      text-align: center;
+      padding: 70px 20px 55px;
+      border-bottom: 2px solid var(--accent);
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: clamp(2.4rem, 5vw, 4.5rem);
+      font-weight: 700;
+    }
+
+    .header p {
+      margin: 16px 0 0;
+      font-size: clamp(1.1rem, 2vw, 1.8rem);
+      font-weight: 600;
+    }
+
+    .navbar {
+      background: #171717;
+      border-bottom: 2px solid var(--accent);
+      display: flex;
+      justify-content: center;
+      gap: 18px;
+      padding: 16px 12px;
+      flex-wrap: wrap;
+    }
+
+    .navbar a {
+      color: var(--accent);
+      text-decoration: none;
+      padding: 12px 22px;
+      border-radius: 10px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      transition: 0.25s ease;
+    }
+
+    .navbar a:hover,
+    .navbar a.active {
+      background: var(--accent);
+      color: #111;
+    }
+
+    .main-content {
+      max-width: 1250px;
+      margin: 0 auto;
+      padding: 50px 24px 70px;
+    }
+
+    .intro {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 34px 38px;
+      margin-bottom: 38px;
+    }
+
+    .intro h2 {
+      margin-top: 0;
+      font-size: clamp(2rem, 3vw, 2.6rem);
+    }
+
+    .intro p {
+      font-size: 1.2rem;
+      line-height: 1.8;
+      margin-bottom: 0;
+    }
+
+    .team-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 24px;
+    }
+
+    .member-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+      border-top: 5px solid var(--accent);
+    }
+
+    .member-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 14px 28px rgba(0,0,0,0.18);
+    }
+
+    .member-photo {
+  height: 240px;
+  overflow: hidden; /* IMPORTANT */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.member-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%; /* 👈 THIS IS THE MAGIC LINE */
+}
+
+    .member-info {
+      padding: 22px;
+    }
+
+    .member-info h3 {
+      margin: 0 0 10px;
+      font-size: 1.55rem;
+    }
+
+    .member-role {
+      color: #8a6d00;
+      font-weight: 700;
+      margin-bottom: 12px;
+      font-size: 1rem;
+    }
+
+    .member-info p {
+      margin: 0;
+      font-size: 1rem;
+      line-height: 1.65;
+    }
+
+    .drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      opacity: 0;
+      visibility: hidden;
+      transition: 0.3s ease;
+      z-index: 998;
+    }
+
+    .drawer-overlay.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .drawer {
+      position: fixed;
+      top: 0;
+      right: -100%;
+      width: min(760px, 100%);
+      height: 100vh;
+      background: #f7f7f7;
+      z-index: 999;
+      box-shadow: -10px 0 30px rgba(0,0,0,0.2);
+      transition: right 0.35s ease;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .drawer.open {
+      right: 0;
+    }
+
+    .drawer-header {
+      background: #111;
+      color: var(--accent);
+      padding: 24px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--accent);
+    }
+
+    .drawer-header h2 {
+      margin: 0;
+      font-size: 2rem;
+    }
+
+    .close-btn {
+      background: transparent;
+      border: 2px solid var(--accent);
+      color: var(--accent);
+      font-size: 1.1rem;
+      font-weight: 700;
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+    }
+
+    .drawer-body {
+      padding: 30px 40px 40px 40px;
+      overflow-y: auto;
+    }
+
+    .drawer-top {
+       display: block;
+    }
+
+    .drawer-role {
+      color: #8a6d00;
+      font-weight: 700;
+      font-size: 1.1rem;
+      margin: 8px 0 18px;
+    }
+
+    .drawer-section {
+	  margin-top: 25px;
+     }
+
+    .drawer-section h3 {
+      margin: 0 0 10px;
+      font-size: 1.3rem;
+    }
+
+    .drawer-section p,
+    .drawer-section li {
+      line-height: 1.8;
+      font-size: 1.05rem;
+    }
+
+    .drawer-section ul {
+      margin-top: 8px;
+      padding-left: 30px;
+    }
+
+    @media (max-width: 760px) {
+      .drawer-body {
+        padding: 24px 24px 30px 24px;
+      }
+	.member-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Senior Design Group 20</h1>
+    <p>F.R.O.G.S Water Purification System</p>
+  </div>
+
+  <div class="navbar">
+    <a href="index.html">Home</a>
+    <a href="about.html" class="active">About Us</a>
+    <a href="docs/">Documents</a>
+    <a href="videos/">Videos</a>
+  </div>
+
+  <div class="main-content">
+    <section class="intro">
+      <h2>Meet the Team</h2>
+      <p>
+        The F.R.O.G.S. project is being developed by a multidisciplinary senior design team focused on creating a practical,
+        solar-powered desalination system for off-grid use. Select any team member below to view a full-screen profile with
+        their role, responsibilities, technical focus, and contributions to the project.
+      </p>
+    </section>
+
+    <section class="team-grid">
+      <article class="member-card" onclick="openDrawer('glenn')">
+        <div class="member-photo">
+  	<img src="assets/Glenn.jpg" alt="Glenn Garcia">
+	</div>
+        <div class="member-info">
+          <h3>Glenn Garcia</h3>
+          <div class="member-role">Embedded Programmer</div>
+          <p>Focused on firmware, sensing, system integration, and web app development.</p>
+        </div>
+      </article>
+
+      <article class="member-card" onclick="openDrawer('caden')">
+        <div class="member-photo">👤</div>
+        <div class="member-info">
+          <h3>Caden Kohlmeier</h3>
+          <div class="member-role">Proejct Manager</div>
+          <p>Served as the project manager for the design team, setting deadlines and communicating with the review committee.</p>
+        </div>
+      </article>
+
+      <article class="member-card" onclick="openDrawer('michael')">
+        <div class="member-photo">
+	<img src="assets/Michael.png" alt="Michael Lucas">
+	</div>
+        <div class="member-info">
+          <h3>Michael Lucas</h3>
+          <div class="member-role">Hardware Design</div>
+          <p>Designed PCB to be fabricated using Fusion Autodesk</p>
+        </div>
+      </article>
+
+      <article class="member-card" onclick="openDrawer('jon')">
+  	<div class="member-photo">
+	<img src="assets/Jon.jpeg" alt="Jonathan Yaegers">
+	</div>
+  	<div class="member-info">
+	   <h3>Jonathan Yaegers</h3>
+           <div class="member-role">Software Design</div>
+           <p>Finalized App creation using Flutter</p>
+           </div>
+          </article>
+
+    </section>
+  </div>
+
+  <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+
+ <aside class="drawer" id="memberDrawer" aria-hidden="true">
+  <div class="drawer-header">
+    <h2 id="drawerName">Team Member</h2>
+    <button class="close-btn" onclick="closeDrawer()">Close</button>
+  </div>
+
+  <div class="drawer-body">
+    <div class="drawer-top">
+      <h2 id="drawerTitle">Team Member</h2>
+      <div class="drawer-role" id="drawerRole">Role</div>
+    </div>
+
+    <div class="drawer-section">
+      <h3>Overview</h3>
+      <p id="drawerOverview"></p>
+    </div>
+
+    <div class="drawer-section">
+      <h3>Project Responsibilities</h3>
+      <ul id="drawerResponsibilities"></ul>
+    </div>
+
+     </div>
+</aside>
+
+  <script>
+    const members = {
+      glenn: {
+       photo: 'assets/Glenn.jpg',
+        name: 'Glenn Garcia',
+        role: 'App and Firmware Development',
+        overview: 'Works on the software development aspects of the project. Writing the firmware for sensor integration as well as developing the mobile flutter app.',
+        responsibilities: [
+          'Firmware development for sensor acquisition and system control',
+          'Integration of TDS and temperature monitoring hardware',
+          'Designed and implemented the Flutter-based mobile application interface',
+          'Support for system-level testing and electrical design decisions'
+        ],
+             },
+      caden: {
+        photo: '👤',
+        name: 'Caden Kohlmeier',
+        role: 'Project Manager',
+        overview: 'Served as the project manager for the F.R.O.G.S. system, where he originated the core concept and guided the team through the design process. He coordinated development efforts across disciplines, ensuring that system-level goals were met while maintaining progress toward key project milestones.',
+        responsibilities: [
+          'Defined project scope, milestones, and development timeline',
+          'Coordinated communication and task delegation across the design team',
+          'Conducted component-level research for pumps, and batteries',
+        ],
+      },
+    michael: {
+  	photo: 'assets/Michael.png',
+  	name: 'Michael Lucas',
+  	role: 'Electrical / Hardware Design',
+  	overview: 'Michael is responsible for the hardware design and physical implementation of the F.R.O.G.S. system. His work focused on developing the printed circuit board layout and ensuring proper integration of electrical components within the overall system architecture.',
+  responsibilities: [
+    'Designed and developed the PCB layout using Autodesk Fusion for fabrication',
+    'Selected and integrated key electrical components for system operation',
+    'Ensured proper routing, grounding, and signal integrity in the PCB design',
+    'Collaborated with the team to support hardware integration and testing'
+  ],
+  contributions: 'Michael’s work enabled a reliable and manufacturable hardware platform for the F.R.O.G.S. system. His PCB design provided the foundation for integrating sensors, power components, and control circuitry into a cohesive and functional device.'
+},
+	jon: {
+  photo: '👤',
+  name: 'Jonathan Yaegers',
+  role: 'Software / Mobile Application Development',
+  overview: 'Jonathan is responsible for the design and development of the mobile application interface for the F.R.O.G.S. system. His work focuses on creating an intuitive and responsive user experience for monitoring system performance and water quality in real time.',
+  responsibilities: [
+    'Developed the mobile application interface for system monitoring',
+    'Implemented real-time display of sensor data including TDS and temperature',
+    'Designed user interface layouts for clarity and ease of use',
+    'Collaborated with firmware development to ensure proper data communication'
+  ],
+  contributions: 'Jonathan’s work enables users to interact with the F.R.O.G.S. system through a clear and responsive mobile interface. His application design translates raw sensor data into meaningful information, improving usability and overall system accessibility.'
+}
+    };
+
+    const drawer = document.getElementById('memberDrawer');
+    const overlay = document.getElementById('drawerOverlay');
+
+    function openDrawer(memberKey) {
+      const member = members[memberKey];
+      if (!member) return;
+
+      document.getElementById('drawerName').textContent = member.name;
+      document.getElementById('drawerTitle').textContent = member.name;
+      document.getElementById('drawerRole').textContent = member.role;
+      document.getElementById('drawerOverview').textContent = member.overview;
+
+      const list = document.getElementById('drawerResponsibilities');
+      list.innerHTML = '';
+      member.responsibilities.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = item;
+        list.appendChild(li);
+      });
+
+      drawer.classList.add('open');
+      overlay.classList.add('open');
+      drawer.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeDrawer() {
+      drawer.classList.remove('open');
+      overlay.classList.remove('open');
+      drawer.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') closeDrawer();
+    });
+  </script>
+</body>
+</html>
