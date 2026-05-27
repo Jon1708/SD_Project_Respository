@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>F.R.O.G.S. Web App</title>
+
+  <style>
+    body {
+      margin: 0;
+      background-color: #050505;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+
+    .app {
+      padding: 25px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #d4af37;
+      letter-spacing: 2px;
+    }
+
+    .status-card {
+      border: 2px solid #d4af37;
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 25px;
+      background-color: #121212;
+    }
+
+    .status-card h2 {
+      color: #d4af37;
+    }
+
+    .sensor-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 18px;
+    }
+
+    .sensor-card {
+      border: 2px solid #d4af37;
+      border-radius: 18px;
+      padding: 25px;
+      text-align: center;
+      background-color: #121212;
+    }
+
+    .icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .sensor-card h3 {
+      color: #d4af37;
+      font-size: 22px;
+    }
+
+    .value {
+      font-size: 28px;
+      font-weight: bold;
+      color: white;
+    }
+
+    .label {
+      color: #aaaaaa;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 280px;
+    }
+
+    button {
+      padding: 14px;
+      border-radius: 14px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .connect-btn {
+      background-color: #d4af37;
+      color: black;
+      border: none;
+    }
+
+    .pump-btn {
+      background-color: transparent;
+      color: #d4af37;
+      border: 2px solid #d4af37;
+    }
+
+    @media (max-width: 900px) {
+      .sensor-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .button-row {
+        grid-template-columns: 1fr;
+        margin-top: 40px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <h1>F.R.O.G.S. Water System</h1>
+
+    <div class="status-card">
+      <h2>System Status</h2>
+      <p>❌ Device Disconnected</p>
+      <p>⚠️ Checking Wi-Fi connection...</p>
+    </div>
+
+    <div class="sensor-grid">
+      <div class="sensor-card">
+        <div class="icon">💧</div>
+        <h3>TDS</h3>
+        <p class="value">145 ppm</p>
+        <p class="label">Water Purity</p>
+      </div>
+
+      <div class="sensor-card">
+        <div class="icon">🌡️</div>
+        <h3>Temperature</h3>
+        <p class="value">72.5 °F</p>
+        <p class="label">Water Temperature</p>
+      </div>
+
+      <div class="sensor-card">
+        <div class="icon">🌊</div>
+        <h3>Flow Rate</h3>
+        <p class="value">1.2 L/min</p>
+        <p class="label">Water Flow</p>
+      </div>
+
+      <div class="sensor-card">
+        <div class="icon">🔋</div>
+        <h3>Battery</h3>
+        <p class="value">82%</p>
+        <p class="label">Battery Level</p>
+      </div>
+
+      <div class="sensor-card">
+        <div class="icon">⚙️</div>
+        <h3>Pump</h3>
+        <p class="value">OFF</p>
+        <p class="label">Pump Status</p>
+      </div>
+    </div>
+
+    <div class="button-row">
+      <button class="connect-btn">Connect Device</button>
+      <button class="pump-btn">Start Pump</button>
+    </div>
+  </div>
+</body>
+</html>
