@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>F.R.O.G.S. Web App</title>
+
+  <style>
+    body {
+      margin: 0;
+      background-color: #050505;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+
+    .app {
+      padding: 25px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #d4af37;
+      letter-spacing: 2px;
+    }
+
+    .status-card,
+    .sensor-card,
+    .switch-card {
+      border: 2px solid #d4af37;
+      border-radius: 18px;
+      padding: 20px;
+      background-color: #121212;
+    }
+
+    .status-card {
+      margin-bottom: 25px;
+    }
+
+    .status-card h2,
+    .sensor-card h3,
+    .switch-card h3 {
+      color: #d4af37;
+    }
+
+    .sensor-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 18px;
+    }
+
+    .sensor-card {
+      text-align: center;
+    }
+
+    .icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .value {
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .label {
+      color: #aaaaaa;
+    }
+
+    .switch-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 40px;
+    }
+
+    .switch-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .switch {
+      position: relative;
+      width: 60px;
+      height: 34px;
+    }
+
+    .switch input {
+      display: none;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: #444;
+      border-radius: 34px;
+      transition: 0.3s;
+    }
+
+    .slider:before {
+      content: "";
+      position: absolute;
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+
+    input:checked + .slider {
+      background-color: #d4af37;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+
+    @media (max-width: 900px) {
+      .sensor-grid,
+      .switch-row {
+        grid-template-columns: 1fr;
+      }
+    }
+    .refresh-row {
+      margin-top: 25px;
+      text-align: center;
+    }
+
+    .refresh-btn {
+      background-color: #d4af37;
+      color: black;
+      border: none;
+      border-radius: 14px;
+      padding: 14px 28px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+    }  
+
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <h1>F.R.O.G.S. Water System</h1>
+
+    <div class="status-card">
+      <h2>System Status</h2>
+      <p id="connectionStatus">❌ Device Disconnected</p>
+      <p id="wifiStatus">⚠️ Waiting for ESP32 connection...</p>
+    </div>
+
+    <div class="sensor-grid">
+      <div class="sensor-card">
+        <div class="icon">💧</div>
+        <h3>TDS</h3>
+        <p class="value" id="tdsValue">-- ppm</p>
+        <p class="label">Water Purity</p>
+      </div>
+
+      <div class="sensor-card">
+        <div class="icon">🌡️</div>
+        <h3>Temperature</h3>
+        <p class="value" id="tempValue">-- °F</p>
+        <p class="label">Water Temperature</p>
+      </div>
+
+      <div class="sensor-card">
+        <div class="icon">🌊</div>
+        <h3>Flow Rate</h3>
+        <p class="value" id="flowValue">-- L/min</p>
+        <p class="label">Water Flow</p>
+      </div>
+
+      <div class="sensor-card">
+        <div class="icon">🔋</div>
+        <h3>Battery</h3>
+        <p class="value" id="batteryValue">-- V</p>
+        <p class="label">Battery Voltage</p>
+      </div>
+
+      <div class="sensor-card">
+        <div class="icon">⚙️</div>
+        <h3>Pump</h3>
+        <p class="value" id="pumpValue">OFF</p>
+        <p class="label">Pump Status</p>
+      </div>
+    </div>
+
+    <div class="switch-row">
+      <div class="switch-card">
+        <h3>Pump 1 Enable</h3>
+        <label class="switch">
+          <input type="checkbox" id="pump1Switch" onchange="setPump1(this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="switch-card">
+        <h3>Pump 2 Enable</h3>
+        <label class="switch">
+          <input type="checkbox" id="pump2Switch" onchange="setPump2(this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+  <div class="refresh-row">
+    <button class="refresh-btn" onclick="getSensorData()">Refresh Data</button>
+  </div>
+  <script>
+    async function getSensorData() {
+      try {
+        const response = await fetch("/data");
+        const data = await response.json();
+
+        document.getElementById("tdsValue").innerText = data.tds + " ppm";
+        document.getElementById("tempValue").innerText = data.temperature + " °F";
+        document.getElementById("flowValue").innerText = data.flowRate + " L/min";
+        document.getElementById("batteryValue").innerText = data.battery + " V";
+        document.getElementById("pumpValue").innerText = data.pump;
+
+        if (data.pump1Enabled !== undefined) {
+          document.getElementById("pump1Switch").checked = data.pump1Enabled;
+        }
+
+        if (data.pump2Enabled !== undefined) {
+          document.getElementById("pump2Switch").checked = data.pump2Enabled;
+        }
+
+        document.getElementById("connectionStatus").innerText = "✅ Device Connected";
+        document.getElementById("wifiStatus").innerText = "ESP32 data received successfully.";
+      } catch (error) {
+        document.getElementById("connectionStatus").innerText = "❌ Device Disconnected";
+        document.getElementById("wifiStatus").innerText = "Could not reach ESP32 /data route.";
+      }
+    }
+
+    async function setPump1(enabled) {
+      await fetch(enabled ? "/pump1/enable" : "/pump1/disable");
+      getSensorData();
+    }
+
+    async function setPump2(enabled) {
+      await fetch(enabled ? "/pump2/enable" : "/pump2/disable");
+      getSensorData();
+    }
+
+    setInterval(getSensorData, 3000);
+    getSensorData();
+  </script>
+</body>
+</html>
