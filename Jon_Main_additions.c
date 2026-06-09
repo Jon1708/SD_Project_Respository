@@ -131,7 +131,11 @@ static float g_flow2_lpm = 0.0f;
 // ---------- Float Switch Variables ----------
 static bool g_tank_full = false;
 
-// ------------ Website Storage ------------
+// ---------- NVS Functions ----------
+
+float tds_calculate_ppm(int adc_raw, float temp_c);
+
+//NEW ADDITION
 static const char html_page[] =
 "<!DOCTYPE html><html lang=\"en\"><head>"
 "<meta charset=\"UTF-8\" />"
@@ -186,9 +190,7 @@ static const char html_page[] =
 "</script></body></html>";
 // NEW_ADDITION
 
-// ---------- NVS Functions ----------
 
-float tds_calculate_ppm(int adc_raw, float temp_c);
 
 static void nvs_init_storage(void)
 {
@@ -1881,7 +1883,6 @@ float tds_calculate_ppm(int adc_raw, float temp_c)
     return tds_ppm;
 }
 
-
 //NEW_WEBSITE_CODE
 static void wifi_init_ap(void)
 {
@@ -2075,8 +2076,6 @@ static void start_webserver(void)
 }
 
 
-
-
 // ---------- Main Application ----------
 
 void app_main(void)
@@ -2093,17 +2092,20 @@ void app_main(void)
     // Create mutexes
     state_mutex = xSemaphoreCreateMutex();
     voltage_mutex = xSemaphoreCreateMutex();
-
+    
     if (state_mutex == NULL || voltage_mutex == NULL) {
         ESP_LOGE(TAG_MAIN, "Failed to create mutexes!");
         return;
     }
     ESP_LOGI(TAG_MAIN, "Mutexes created");
 
+    
     //ADDITION
     wifi_init_ap();
     start_webserver();
     //
+
+    
     ESP_ERROR_CHECK(ble_init());
     ESP_LOGI(TAG_MAIN, "BLE initialized");
     // Configure LED GPIO
