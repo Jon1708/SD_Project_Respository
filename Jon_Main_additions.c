@@ -2071,6 +2071,9 @@ static void start_webserver(void)
     }
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    config.stack_size = 4096;
+    config.max_open_sockets = 2;
+    config.max_uri_handlers = 6;
 
     ESP_ERROR_CHECK(httpd_start(&server, &config));
 
@@ -2276,7 +2279,7 @@ void app_main(void)
     xTaskCreate(input_task, "input_task", 4096, NULL, 3, NULL);
     xTaskCreate(rgb_task, "rgb_task", 2048, NULL, 1, NULL);
     xTaskCreate(pump_task, "pump_task", 4096, NULL, 2, NULL);
-    xTaskCreate(ble_notify_task, "ble_notify_task", 4096, NULL, 2, NULL);
+    //xTaskCreate(ble_notify_task, "ble_notify_task", 4096, NULL, 2, NULL);
     xTaskCreate(flow_task, "flow_task", 2048, NULL, 2, NULL);
 
     ESP_LOGI(TAG_MAIN, "All tasks started successfully");
