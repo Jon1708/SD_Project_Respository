@@ -168,8 +168,8 @@ static const char html_page[] =
 "<div class=\"sensor-card\"><div class=\"icon\">⚙️</div><h3>Pump</h3><p class=\"value\" id=\"pumpValue\">OFF</p><p class=\"label\">Pump Status</p></div>"
 "</div>"
 "<div class=\"switch-row\">"
-"<div class=\"switch-card\"><h3>Pump 1 Enable</h3><label class=\"switch\"><input type=\"checkbox\" id=\"pump1Switch\" onchange=\"setPump1(this.checked)\"><span class=\"slider\"></span></label></div>"
-"<div class=\"switch-card\"><h3>Pump 2 Enable</h3><label class=\"switch\"><input type=\"checkbox\" id=\"pump2Switch\" onchange=\"setPump2(this.checked)\"><span class=\"slider\"></span></label></div>"
+"<div class=\"switch-card\"><h3>Feed Pump Enable</h3><label class=\"switch\"><input type=\"checkbox\" id=\"pump1Switch\" onchange=\"setPump1(this.checked)\"><span class=\"slider\"></span></label></div>"
+"<div class=\"switch-card\"><h3>Return Pump Enable</h3><label class=\"switch\"><input type=\"checkbox\" id=\"pump2Switch\" onchange=\"setPump2(this.checked)\"><span class=\"slider\"></span></label></div>"
 "</div></div>"
 "<div class=\"refresh-row\"><button class=\"refresh-btn\" onclick=\"getSensorData()\">Refresh Data</button></div>"
 "<script>"
@@ -1957,7 +1957,7 @@ static esp_err_t data_get_handler(httpd_req_t *req)
 
     snprintf(json, sizeof(json),
              "{\"tds\":%.1f,\"temperature\":%.1f,\"flowRate\":%.2f,"
-             "\"battery\":%.2f,\"pump\":\"P1:%s P2:%s\","
+             "\"battery\":%.2f,\"pump\":\"Feed:%s Return:%s\","
              "\"pump1Enabled\":%s,\"pump2Enabled\":%s}",
              tds,
              temp_f,
@@ -1980,7 +1980,7 @@ static esp_err_t pump1_enable_handler(httpd_req_t *req)
         nvs_save_voltages();
     }
 
-    return httpd_resp_sendstr(req, "Pump 1 enabled");
+    return httpd_resp_sendstr(req, "Feed Pump enabled");
 }
 
 static esp_err_t pump1_disable_handler(httpd_req_t *req)
