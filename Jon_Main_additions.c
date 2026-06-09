@@ -2156,8 +2156,8 @@ void app_main(void)
     wifi_init_ap();
     start_webserver();
     
-    ESP_ERROR_CHECK(ble_init());
-    ESP_LOGI(TAG_MAIN, "BLE initialized");
+    //ESP_ERROR_CHECK(ble_init());
+    //ESP_LOGI(TAG_MAIN, "BLE initialized");
     // Configure LED GPIO
     gpio_reset_pin(LED_PIN);
     gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
