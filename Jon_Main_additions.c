@@ -22,6 +22,8 @@
 #include "esp_event.h"
 #include "esp_http_server.h"
 
+#define TDS_ADC_CHANNEL ADC_CHANNEL_0 
+
 // ---------- ADC channel alias (battery) ----------
 #define ADC_CHANNEL     BAT_ADC_CHANNEL
 
@@ -33,8 +35,8 @@ static const char *TAG_OLED = "OLED";
 static const char *TAG_BUTTON = "BUTTON";
 static const char *TAG_RGB = "RGB";
 static const char *TAG_ADMIN = "ADMIN";
-static bool g_pump_running = false;
-static bool g_pump2_running = false;
+static bool g_lp_pump_running = false;
+static bool g_hp_pump_running = false;
 
 // ---------- Display/System Mode ----------
 typedef enum {
@@ -81,14 +83,14 @@ static bool g_temp_float_check = true;
 static bool g_temp_lvd_check   = true;
 
 // Pump 1 manual override (runtime only — resets to false on reboot)
-static bool g_pump1_override      = false;
-static bool g_temp_pump1_override = false;
+static bool g_lp_pump_override      = false;
+static bool g_temp_lp_pump_override = false;
 
 // Pump enable/shutoff (persisted — when OFF pump cannot activate under any condition)
-static bool g_p1_enable      = true;
-static bool g_p2_enable      = true;
-static bool g_temp_p1_enable = true;
-static bool g_temp_p2_enable = true;
+static bool g_lp_pump_enable      = true;
+static bool g_hp_pump_enable      = true;
+static bool g_temp_lp_pump_enable = true;
+static bool g_temp_hp_pump_enable = true;
 
 // Display mode state
 static display_mode_t g_display_mode = MODE_HOME;
@@ -102,6 +104,7 @@ static SemaphoreHandle_t voltage_mutex;
 
 // ADC handle
 static adc_oneshot_unit_handle_t adc_handle;
+static adc_oneshot_unit_handle_t adc2_handle; 
 
 // OLED framebuffer
 static uint8_t oled_buffer[OLED_WIDTH * OLED_HEIGHT / 8];
@@ -131,66 +134,80 @@ static float g_flow2_lpm = 0.0f;
 // ---------- Float Switch Variables ----------
 static bool g_tank_full = false;
 
-// ---------- NVS Functions ----------
 
-float tds_calculate_ppm(int adc_raw, float temp_c);
-
-//NEW ADDITION
+// New_Addition
+// ---------- Webpage Storage ----------
 static const char html_page[] =
 "<!DOCTYPE html><html lang=\"en\"><head>"
-"<meta charset=\"UTF-8\" />"
-"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />"
+"<meta charset=\"UTF-8\"/>"
+"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"/>"
 "<title>F.R.O.G.S. Web App</title>"
 "<style>"
-"body{margin:0;background-color:#050505;color:white;font-family:Arial,sans-serif;}"
+"body{margin:0;background:#050505;color:white;font-family:Arial,sans-serif;}"
 ".app{padding:25px;}h1{text-align:center;color:#d4af37;letter-spacing:2px;}"
-".status-card,.sensor-card,.switch-card{border:2px solid #d4af37;border-radius:18px;padding:20px;background-color:#121212;}"
+".status-card,.sensor-card,.switch-card{border:2px solid #d4af37;border-radius:18px;padding:20px;background:#121212;}"
 ".status-card{margin-bottom:25px;}.status-card h2,.sensor-card h3,.switch-card h3{color:#d4af37;}"
 ".sensor-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:18px;}"
-".sensor-card{text-align:center;}.icon{font-size:32px;margin-bottom:10px;}"
-".value{font-size:28px;font-weight:bold;}.label{color:#aaaaaa;}"
+".sensor-card{text-align:center;}.value{font-size:28px;font-weight:bold;}.label{color:#aaa;}"
 ".switch-row{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:40px;}"
 ".switch-card{display:flex;justify-content:space-between;align-items:center;}"
 ".switch{position:relative;width:60px;height:34px;}.switch input{display:none;}"
-".slider{position:absolute;cursor:pointer;inset:0;background-color:#444;border-radius:34px;transition:0.3s;}"
-".slider:before{content:\"\";position:absolute;height:26px;width:26px;left:4px;bottom:4px;background-color:white;border-radius:50%;transition:0.3s;}"
-"input:checked+.slider{background-color:#d4af37;}input:checked+.slider:before{transform:translateX(26px);}"
+".slider{position:absolute;cursor:pointer;inset:0;background:#444;border-radius:34px;transition:.3s;}"
+".slider:before{content:\"\";position:absolute;height:26px;width:26px;left:4px;bottom:4px;background:white;border-radius:50%;transition:.3s;}"
+"input:checked+.slider{background:#d4af37;}input:checked+.slider:before{transform:translateX(26px);}"
+".refresh-row{margin-top:25px;text-align:center;}.refresh-btn{background:#d4af37;color:black;border:0;border-radius:14px;padding:14px 28px;font-size:18px;font-weight:bold;cursor:pointer;}"
 "@media(max-width:900px){.sensor-grid,.switch-row{grid-template-columns:1fr;}}"
-".refresh-row{margin-top:25px;text-align:center;}.refresh-btn{background-color:#d4af37;color:black;border:none;border-radius:14px;padding:14px 28px;font-size:18px;font-weight:bold;cursor:pointer;}"
 "</style></head><body>"
-"<div class=\"app\"><h1>F.R.O.G.S. Water System</h1>"
-"<div class=\"status-card\"><h2>System Status</h2><p id=\"connectionStatus\">❌ Device Disconnected</p><p id=\"wifiStatus\">⚠️ Waiting for ESP32 connection...</p></div>"
+"<div class=\"app\">"
+"<h1>F.R.O.G.S. Water System</h1>"
+"<div class=\"status-card\">"
+"<h2>System Status</h2>"
+"<p id=\"connectionStatus\">Device Disconnected</p>"
+"<p id=\"wifiStatus\">Waiting for ESP32 connection...</p>"
+"</div>"
 "<div class=\"sensor-grid\">"
-"<div class=\"sensor-card\"><div class=\"icon\">💧</div><h3>TDS</h3><p class=\"value\" id=\"tdsValue\">-- ppm</p><p class=\"label\">Water Purity</p></div>"
-"<div class=\"sensor-card\"><div class=\"icon\">🌡️</div><h3>Temperature</h3><p class=\"value\" id=\"tempValue\">-- °F</p><p class=\"label\">Water Temperature</p></div>"
-"<div class=\"sensor-card\"><div class=\"icon\">🌊</div><h3>Flow Rate</h3><p class=\"value\" id=\"flowValue\">-- L/min</p><p class=\"label\">Water Flow</p></div>"
-"<div class=\"sensor-card\"><div class=\"icon\">🔋</div><h3>Battery</h3><p class=\"value\" id=\"batteryValue\">-- V</p><p class=\"label\">Battery Voltage</p></div>"
-"<div class=\"sensor-card\"><div class=\"icon\">⚙️</div><h3>Pump</h3><p class=\"value\" id=\"pumpValue\">OFF</p><p class=\"label\">Pump Status</p></div>"
+"<div class=\"sensor-card\"><h3>TDS</h3><p class=\"value\" id=\"tdsValue\">-- ppm</p><p class=\"label\">Water Purity</p></div>"
+"<div class=\"sensor-card\"><h3>Temperature</h3><p class=\"value\" id=\"tempValue\">-- F</p><p class=\"label\">Water Temperature</p></div>"
+"<div class=\"sensor-card\"><h3>Flow Rate</h3><p class=\"value\" id=\"flowValue\">-- L/min</p><p class=\"label\">Water Flow</p></div>"
+"<div class=\"sensor-card\"><h3>Battery</h3><p class=\"value\" id=\"batteryValue\">-- V</p><p class=\"label\">Battery Voltage</p></div>"
+"<div class=\"sensor-card\"><h3>Pumps</h3><p class=\"value\" id=\"pumpValue\">OFF</p><p class=\"label\">Pump Status</p></div>"
 "</div>"
 "<div class=\"switch-row\">"
-"<div class=\"switch-card\"><h3>Feed Pump Enable</h3><label class=\"switch\"><input type=\"checkbox\" id=\"pump1Switch\" onchange=\"setPump1(this.checked)\"><span class=\"slider\"></span></label></div>"
-"<div class=\"switch-card\"><h3>Return Pump Enable</h3><label class=\"switch\"><input type=\"checkbox\" id=\"pump2Switch\" onchange=\"setPump2(this.checked)\"><span class=\"slider\"></span></label></div>"
-"</div></div>"
+"<div class=\"switch-card\"><h3>LP Pump Enable</h3><label class=\"switch\"><input type=\"checkbox\" id=\"lpPumpSwitch\" onchange=\"setLpPump(this.checked)\"><span class=\"slider\"></span></label></div>"
+"<div class=\"switch-card\"><h3>HP Pump Enable</h3><label class=\"switch\"><input type=\"checkbox\" id=\"hpPumpSwitch\" onchange=\"setHpPump(this.checked)\"><span class=\"slider\"></span></label></div>"
+"</div>"
+"</div>"
 "<div class=\"refresh-row\"><button class=\"refresh-btn\" onclick=\"getSensorData()\">Refresh Data</button></div>"
 "<script>"
-"async function getSensorData(){try{const response=await fetch('/data');const data=await response.json();"
+"async function getSensorData(){"
+"try{"
+"const response=await fetch('/data');"
+"const data=await response.json();"
 "document.getElementById('tdsValue').innerText=data.tds+' ppm';"
-"document.getElementById('tempValue').innerText=data.temperature+' °F';"
+"document.getElementById('tempValue').innerText=data.temperature+' F';"
 "document.getElementById('flowValue').innerText=data.flowRate+' L/min';"
 "document.getElementById('batteryValue').innerText=data.battery+' V';"
 "document.getElementById('pumpValue').innerText=data.pump;"
-"document.getElementById('pump1Switch').checked=data.pump1Enabled;"
-"document.getElementById('pump2Switch').checked=data.pump2Enabled;"
-"document.getElementById('connectionStatus').innerText='✅ Device Connected';"
+"document.getElementById('lpPumpSwitch').checked=data.lpPumpEnabled;"
+"document.getElementById('hpPumpSwitch').checked=data.hpPumpEnabled;"
+"document.getElementById('connectionStatus').innerText='Device Connected';"
 "document.getElementById('wifiStatus').innerText='ESP32 data received successfully.';"
-"}catch(error){document.getElementById('connectionStatus').innerText='❌ Device Disconnected';document.getElementById('wifiStatus').innerText='Could not reach ESP32 /data route.';}}"
-"async function setPump1(enabled){await fetch(enabled?'/pump1/enable':'/pump1/disable');getSensorData();}"
-"async function setPump2(enabled){await fetch(enabled?'/pump2/enable':'/pump2/disable');getSensorData();}"
-"setInterval(getSensorData,3000);getSensorData();"
-"</script></body></html>";
-// NEW_ADDITION
+"}catch(e){"
+"document.getElementById('connectionStatus').innerText='Device Disconnected';"
+"document.getElementById('wifiStatus').innerText='Could not reach ESP32 /data route.';"
+"}"
+"}"
+"async function setLpPump(enabled){await fetch(enabled?'/lp/enable':'/lp/disable');getSensorData();}"
+"async function setHpPump(enabled){await fetch(enabled?'/hp/enable':'/hp/disable');getSensorData();}"
+"setInterval(getSensorData,3000);"
+"getSensorData();"
+"</script>"
+"</body></html>";
 
 
+// ---------- NVS Functions ----------
+
+float tds_calculate_ppm(int adc_raw, float temp_c);
 
 static void nvs_init_storage(void)
 {
@@ -237,10 +254,10 @@ static void nvs_load_voltages(void)
         g_ldr_check   = (nvs_get_u8(nvs_handle, NVS_KEY_LDR_CHECK,   &chk) == ESP_OK) ? (bool)chk : true;
         g_float_check = (nvs_get_u8(nvs_handle, NVS_KEY_FLOAT_CHECK, &chk) == ESP_OK) ? (bool)chk : true;
         g_lvd_check   = (nvs_get_u8(nvs_handle, NVS_KEY_LVD_CHECK,   &chk) == ESP_OK) ? (bool)chk : true;
-        g_p1_enable   = (nvs_get_u8(nvs_handle, NVS_KEY_P1_ENABLE,   &chk) == ESP_OK) ? (bool)chk : true;
-        g_p2_enable   = (nvs_get_u8(nvs_handle, NVS_KEY_P2_ENABLE,   &chk) == ESP_OK) ? (bool)chk : true;
-        ESP_LOGI(TAG_ADMIN, "Checks - LDR:%d Float:%d LVD:%d P1EN:%d P2EN:%d",
-                 g_ldr_check, g_float_check, g_lvd_check, g_p1_enable, g_p2_enable);
+        g_lp_pump_enable   = (nvs_get_u8(nvs_handle, NVS_KEY_LP_PUMP_ENABLE,   &chk) == ESP_OK) ? (bool)chk : true;
+        g_hp_pump_enable   = (nvs_get_u8(nvs_handle, NVS_KEY_HP_PUMP_ENABLE,   &chk) == ESP_OK) ? (bool)chk : true;
+        ESP_LOGI(TAG_ADMIN, "Checks - LDR:%d Float:%d LVD:%d LPEN:%d HPEN:%d",
+                 g_ldr_check, g_float_check, g_lvd_check, g_lp_pump_enable, g_hp_pump_enable);
 
         nvs_close(nvs_handle);
     } else {
@@ -280,8 +297,8 @@ static void nvs_save_voltages(void)
         nvs_set_u8(nvs_handle, NVS_KEY_LDR_CHECK,   (uint8_t)g_ldr_check);
         nvs_set_u8(nvs_handle, NVS_KEY_FLOAT_CHECK, (uint8_t)g_float_check);
         nvs_set_u8(nvs_handle, NVS_KEY_LVD_CHECK,   (uint8_t)g_lvd_check);
-        nvs_set_u8(nvs_handle, NVS_KEY_P1_ENABLE,   (uint8_t)g_p1_enable);
-        nvs_set_u8(nvs_handle, NVS_KEY_P2_ENABLE,   (uint8_t)g_p2_enable);
+        nvs_set_u8(nvs_handle, NVS_KEY_LP_PUMP_ENABLE,   (uint8_t)g_lp_pump_enable);
+        nvs_set_u8(nvs_handle, NVS_KEY_HP_PUMP_ENABLE,   (uint8_t)g_hp_pump_enable);
 
         // Commit changes
         err = nvs_commit(nvs_handle);
@@ -359,9 +376,9 @@ static void enter_admin_edit(void)
         g_temp_ldr_check       = g_ldr_check;
         g_temp_float_check     = g_float_check;
         g_temp_lvd_check       = g_lvd_check;
-        g_temp_pump1_override  = g_pump1_override;
-        g_temp_p1_enable       = g_p1_enable;
-        g_temp_p2_enable       = g_p2_enable;
+        g_temp_lp_pump_override  = g_lp_pump_override;
+        g_temp_lp_pump_enable       = g_lp_pump_enable;
+        g_temp_hp_pump_enable       = g_hp_pump_enable;
         xSemaphoreGive(voltage_mutex);
     }
 
@@ -380,9 +397,9 @@ static void exit_admin_edit(bool save)
             g_ldr_check       = g_temp_ldr_check;
             g_float_check     = g_temp_float_check;
             g_lvd_check       = g_temp_lvd_check;
-            g_pump1_override  = g_temp_pump1_override;
-            g_p1_enable       = g_temp_p1_enable;
-            g_p2_enable       = g_temp_p2_enable;
+            g_lp_pump_override  = g_temp_lp_pump_override;
+            g_lp_pump_enable       = g_temp_lp_pump_enable;
+            g_hp_pump_enable       = g_temp_hp_pump_enable;
             xSemaphoreGive(voltage_mutex);
         }
         nvs_save_voltages();
@@ -773,7 +790,7 @@ static void display_admin_mode(void)
     oled_draw_string(90, 4, line);
 
     // Scroll window: 5 visible rows, follows cursor
-    // Items: 0=LVD 1=MVR 2=LDR CHK 3=FLT CHK 4=LVD CHK 5=P1 OVRD 6=RESET
+    // Items: 0=LVD 1=MVR 2=LDR CHK 3=FLT CHK 4=LVD CHK 5= OVRD 6=RESET
     int scroll_top = (g_admin_cursor > 4) ? g_admin_cursor - 4 : 0;
 
     for (int i = 0; i < 5; i++) {
@@ -788,9 +805,9 @@ static void display_admin_mode(void)
             case 2: snprintf(line, sizeof(line), "LDR CHK: %s", g_temp_ldr_check    ? "ON" : "OFF"); break;
             case 3: snprintf(line, sizeof(line), "FLT CHK: %s", g_temp_float_check  ? "ON" : "OFF"); break;
             case 4: snprintf(line, sizeof(line), "LVD CHK: %s", g_temp_lvd_check    ? "ON" : "OFF"); break;
-            case 5: snprintf(line, sizeof(line), "P1 OVRD: %s", g_temp_pump1_override ? "ON" : "OFF"); break;
-            case 6: snprintf(line, sizeof(line), "P1 EN:   %s", g_temp_p1_enable    ? "ON" : "OFF"); break;
-            case 7: snprintf(line, sizeof(line), "P2 EN:   %s", g_temp_p2_enable    ? "ON" : "OFF"); break;
+            case 5: snprintf(line, sizeof(line), "LP OVRD: %s", g_temp_lp_pump_override ? "ON" : "OFF"); break;
+            case 6: snprintf(line, sizeof(line), "LP EN:   %s", g_temp_lp_pump_enable    ? "ON" : "OFF"); break;
+            case 7: snprintf(line, sizeof(line), "HP EN:   %s", g_temp_hp_pump_enable    ? "ON" : "OFF"); break;
             case 8: snprintf(line, sizeof(line), "RESET DFLTS");                                      break;
         }
 
@@ -959,10 +976,10 @@ static void display_manual_mode(void)
         },
         {
             "PUMP CONTROL  3/4",
-            "P1 OVRD: FORCE ON",
+            "LP OVRD: FORCE ON",
             "BYPASSES ALL CHKS",
-            "P1 EN: ALLOW P1",
-            "P2 EN: ALLOW P2",
+            "LP EN: ALLOW LP",
+            "HP EN: ALLOW HP",
             "OFF=HARD SHUTOFF",
         },
         {
@@ -1008,15 +1025,15 @@ static void display_home_mode(void)
     float lvd = 0.0f;
     float mvr = 0.0f;
     bool daylight = false;
-    bool pump = false;
-    bool pump2 = false;
+    bool lp_pump = false;
+    bool hp_pump = false;
     bool tank_full = false;
 
     if (xSemaphoreTake(state_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
         bv        = g_battery_voltage;
         daylight  = g_daylight_confirmed;
-        pump      = g_pump_running;
-        pump2     = g_pump2_running;
+        lp_pump      = g_lp_pump_running;
+        hp_pump     = g_hp_pump_running;
         tank_full = g_tank_full;
         xSemaphoreGive(state_mutex);
     }
@@ -1037,8 +1054,8 @@ static void display_home_mode(void)
     snprintf(line, sizeof(line), "BATT: %.2fV", bv);
     oled_draw_string(0, 16, line);
 
-    snprintf(line, sizeof(line), "P1: %-3s  P2: %-3s",
-             pump ? "ON" : "OFF", pump2 ? "ON" : "OFF");
+    snprintf(line, sizeof(line), "LP: %-3s HP: %-3s",
+             lp_pump ? "ON" : "OFF", hp_pump ? "ON" : "OFF");
     oled_draw_string(0, 26, line);
 
     snprintf(line, sizeof(line), "TANK: %-4s",
@@ -1051,7 +1068,7 @@ static void display_home_mode(void)
         oled_draw_string(0, 46, "BLOCKED: LOW V");
     } else if (tank_full) {
         oled_draw_string(0, 46, "BLOCKED: TANK");
-    } else if (bv < mvr && !pump) {
+    } else if (bv < mvr && !lp_pump) {
         oled_draw_string(0, 46, "WAITING FOR MVR");
     } else {
         oled_draw_string(0, 46, "SYSTEM OK");
@@ -1207,16 +1224,16 @@ handle_direction:
                         ESP_LOGI(TAG_ADMIN, "LVD check -> %d", g_temp_lvd_check);
                         break;
                     case 5:
-                        g_temp_pump1_override = !g_temp_pump1_override;
-                        ESP_LOGI(TAG_ADMIN, "P1 override -> %d", g_temp_pump1_override);
+                        g_temp_lp_pump_override = !g_temp_lp_pump_override;
+                        ESP_LOGI(TAG_ADMIN, "LP override -> %d", g_temp_lp_pump_override);
                         break;
                     case 6:
-                        g_temp_p1_enable = !g_temp_p1_enable;
-                        ESP_LOGI(TAG_ADMIN, "P1 enable -> %d", g_temp_p1_enable);
+                        g_temp_lp_pump_enable = !g_temp_lp_pump_enable;
+                        ESP_LOGI(TAG_ADMIN, "LP enable -> %d", g_temp_lp_pump_enable);
                         break;
                     case 7:
-                        g_temp_p2_enable = !g_temp_p2_enable;
-                        ESP_LOGI(TAG_ADMIN, "P2 enable -> %d", g_temp_p2_enable);
+                        g_temp_hp_pump_enable = !g_temp_hp_pump_enable;
+                        ESP_LOGI(TAG_ADMIN, "HP enable -> %d", g_temp_hp_pump_enable);
                         break;
                     case 8:
                         g_temp_lvd             = DEFAULT_LVD;
@@ -1224,9 +1241,9 @@ handle_direction:
                         g_temp_ldr_check       = true;
                         g_temp_float_check     = true;
                         g_temp_lvd_check       = true;
-                        g_temp_pump1_override  = false;
-                        g_temp_p1_enable       = true;
-                        g_temp_p2_enable       = true;
+                        g_temp_lp_pump_override  = false;
+                        g_temp_lp_pump_enable       = true;
+                        g_temp_hp_pump_enable       = true;
                         ESP_LOGI(TAG_ADMIN, "Defaults restored");
                         break;
                 }
@@ -1401,10 +1418,15 @@ void adc_task(void *pvParameters)
     int ldr_buffer_index = 0;
     int ldr_sum = 0;
 
+    int tds_buffer[TDS_ADC_SAMPLES] = {0};
+    int tds_buffer_index = 0;
+    int tds_sum = 0;
+
     ESP_LOGI(TAG_ADC, "adc_task started");
     ESP_LOGI(TAG_ADC, "Battery: GPIO34 (ADC1_CH6), LDR: GPIO35 (ADC1_CH7)");
     ESP_LOGI(TAG_ADC, "Battery voltage range: %.1fV - %.1fV", BAT_V_MIN, BAT_V_MAX);
     ESP_LOGI(TAG_ADC, "LDR threshold: %d (above = daylight)", LDR_THRESHOLD);
+    ESP_LOGI(TAG_ADC, "Current Sense: GPIO25 (ADC2_CH8)");
 
     while (1) {
         // --- Battery ADC ---
@@ -1451,7 +1473,7 @@ float battery_voltage = adc_voltage * (83.0f / 15.0f) * BAT_CAL;
         float tds_ppm = 0.0f;
         bool tds_valid = false;
 
-        /*
+        
         ret = adc_oneshot_read(adc2_handle, TDS_ADC2_CHANNEL, &tds_raw);
 
         if (ret != ESP_OK) {
@@ -1486,22 +1508,27 @@ float battery_voltage = adc_voltage * (83.0f / 15.0f) * BAT_CAL;
                 xSemaphoreGive(state_mutex);
             }
         }
-        */
+        
 
         // --- Current Sense ADC (IS 1+2, GPIO25) ---
         float current_amps = 0.0f;
+        int is_raw = 0;
         bool current_valid = false;
-        /*
-        if (adc_oneshot_read(adc2_handle, IS_3_4_CHANNEL, &is_raw) == ESP_OK) {
+        
+        if (adc_oneshot_read(adc2_handle, IS_1_2_CHANNEL, &is_raw) == ESP_OK) {
             // IS pin outputs ~1.2kA/A — with a 1kΩ sense resistor: V = I_sense * R
-            // BTS700x kILIS = 1100 (typ), so I_load = (V_IS / R_sense) * kILIS
+            // BTS700x kILIS = 22900 (typ), so I_load = (V_IS / R_sense) * kILIS
             float v_is = (is_raw / 4095.0f) * 3.3f;
-            current_amps = (v_is / 1000.0f) * 1100.0f;
-            current_valid = true;
+            current_amps = (v_is/ 4730.0f) *22900.0f;
+            current_valid = true; 
+            ESP_LOGI(TAG_ADC, "IS raw=%d", is_raw);
         }
-        */
+        else {
+            ESP_LOGE(TAG_ADC, "Current sense ADC read failed");
+            }
+        
         // Update other global variables
-        if (xSemaphoreTake(state_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+        if (xSemaphoreTake(state_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
             g_adc_raw = avg_raw;
             g_battery_voltage = battery_voltage;
             g_ldr_raw = ldr_avg;
@@ -1616,8 +1643,8 @@ void ble_notify_task(void *pvParameters)
             float current = 0.0f;
             float flow1 = 0.0f;
             float flow2 = 0.0f;
-            bool pump1 = false;
-            bool pump2 = false;
+            bool lp_pump = false;
+            bool hp_pump = false;
             bool temp_valid = false;
             bool tds_valid = false;
             bool current_valid = false;
@@ -1629,8 +1656,8 @@ void ble_notify_task(void *pvParameters)
                 current = g_current_amps;
                 flow1 = g_flow1_lpm;
                 flow2 = g_flow2_lpm;
-                pump1 = g_pump_running;
-                pump2 = g_pump2_running;
+                lp_pump = g_lp_pump_running;
+                hp_pump = g_hp_pump_running;
                 temp_valid = g_temp_valid;
                 tds_valid = g_tds_valid;
                 current_valid = g_current_valid;
@@ -1640,11 +1667,11 @@ void ble_notify_task(void *pvParameters)
             snprintf(payload, sizeof(payload),
                      "{\"battery\":%.2f,\"temp\":%.2f,\"tds\":%.1f,"
                      "\"current\":%.2f,\"flow1\":%.2f,\"flow2\":%.2f,"
-                     "\"pump1\":%d,\"pump2\":%d,\"tempValid\":%d,"
+                     "\"lp_pump\":%d,\"hp_pump\":%d,\"tempValid\":%d,"
                      "\"tdsValid\":%d,\"currentValid\":%d}",
                      bv, temp_c, tds,
                      current, flow1, flow2,
-                     pump1, pump2,
+                     lp_pump, hp_pump,
                      temp_valid, tds_valid, current_valid);
 
             ble_send(payload);
@@ -1662,6 +1689,7 @@ void pump_task(void *pvParameters)
     ESP_LOGI("PUMP", "Light ON delay: %ds, OFF delay: %ds",
              LIGHT_ON_DELAY_MS / 1000, LIGHT_OFF_DELAY_MS / 1000);
 
+             
     bool pump_enabled = false;          // voltage-based enable (LVD/MVR hysteresis)
     bool light_is_bright = false;       // raw light reading above threshold
     int64_t light_change_time = 0;      // timestamp when light state last changed
@@ -1752,61 +1780,61 @@ void pump_task(void *pvParameters)
 
         // Read condition toggles, override, and shutoffs
         bool ldr_check = true, float_chk = true, lvd_chk = true;
-        bool p1_override = false, p1_enable = true, p2_enable = true;
+        bool lp_pump_override = false, lp_pump_enable = true, hp_pump_enable = true;
         if (xSemaphoreTake(voltage_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
             ldr_check   = g_ldr_check;
             float_chk   = g_float_check;
             lvd_chk     = g_lvd_check;
-            p1_override = g_pump1_override;
-            p1_enable   = g_p1_enable;
-            p2_enable   = g_p2_enable;
+            lp_pump_override = g_lp_pump_override;
+            lp_pump_enable   = g_lp_pump_enable;
+            hp_pump_enable   = g_hp_pump_enable;
             xSemaphoreGive(voltage_mutex);
         }
 
         // --- Final pump 1 decision ---
-        // Shutoff (p1_enable) takes priority over everything including override
-        bool conditions_met = p1_override
+        // Shutoff (_enable) takes priority over everything including override
+        bool conditions_met = lp_pump_override
                            || ((lvd_chk   ? pump_enabled   : true)
                             && (ldr_check ? daylight_stable : true)
-                            && (float_chk ? tank_full       : true));
-        bool active = p1_enable && conditions_met && (g_display_mode != MODE_ADMIN_EDIT);
+                            && (float_chk ? !tank_full       : true));
+        bool active = lp_pump_enable && conditions_met && (g_display_mode != MODE_ADMIN_EDIT);
 
-        gpio_set_level(FEED_PUMP_PIN, active ? 1 : 0);
+        gpio_set_level(LP_PUMP, active ? 1 : 0);
 
         // --- Pump 2: turns on after PUMP2_DELAY_MS of Pump 1 running ---
-        static int64_t pump1_start_time = 0;
-        bool pump2_active = false;
+        static int64_t lp_pump_start_time = 0;
+        bool hp_pump_active = false;
 
         if (active) {
-            if (pump1_start_time == 0) {
-                pump1_start_time = now;
+            if (lp_pump_start_time == 0) {
+                lp_pump_start_time = now;
                 ESP_LOGI("PUMP2", "Pump 1 started, waiting %ds before Pump 2",
-                         PUMP2_DELAY_MS / 1000);
+                         HP_PUMP_DELAY_MS / 1000);
             }
-            if (p2_enable && (now - pump1_start_time) >= PUMP2_DELAY_MS) {
-                pump2_active = true;
+            if (hp_pump_enable && (now - lp_pump_start_time) >= HP_PUMP_DELAY_MS) {
+                hp_pump_active = true;
             }
         } else {
-            if (pump1_start_time != 0) {
-                ESP_LOGI("PUMP2", "Pump 1 stopped, Pump 2 OFF");
+            if (lp_pump_start_time != 0) {
+                ESP_LOGI("HP_PUMP", "LP Pump stopped, HP Pump 2 OFF");
             }
-            pump1_start_time = 0;
+            lp_pump_start_time = 0;
         }
 
-        gpio_set_level(PUMP2_PIN, pump2_active ? 1 : 0);
+        gpio_set_level(HP_PUMP, hp_pump_active ? 1 : 0);
 
         static int pump_log_counter = 0;
         if (++pump_log_counter >= 4) {
-            ESP_LOGI("PUMP", "v_ok=%d light=%d(%s) daylight=%d p1en=%d p2en=%d ovrd=%d -> pump1=%d pump2=%d",
+            ESP_LOGI("PUMP", "v_ok=%d light=%d(%s) daylight=%d lpen=%d hpen=%d ovrd=%d -> lp_pump=%d hp_pump=%d",
                      pump_enabled, ldr, light_is_bright ? "B" : "D",
-                     daylight_stable, p1_enable, p2_enable, p1_override,
-                     active, pump2_active && p2_enable);
+                     daylight_stable, lp_pump_enable, hp_pump_enable, lp_pump_override,
+                     active, hp_pump_active && hp_pump_enable);
             pump_log_counter = 0;
         }
 
         if (xSemaphoreTake(state_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-            g_pump_running = active;
-            g_pump2_running = pump2_active;
+            g_lp_pump_running = active;
+            g_hp_pump_running = hp_pump_active;
             xSemaphoreGive(state_mutex);
         }
 
@@ -1857,7 +1885,14 @@ void flow_task(void *pvParameters)
             count2 = 0;
             window_start = now;
         }
+        int raw_float = gpio_get_level(FLOAT_SW_PIN);
+        bool tank_full = (raw_float == 0);
 
+        if (xSemaphoreTake(state_mutex, pdMS_TO_TICKS(10)) == pdTRUE)
+             {
+            g_tank_full = tank_full;
+            xSemaphoreGive(state_mutex);
+            }
         vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
@@ -1883,7 +1918,8 @@ float tds_calculate_ppm(int adc_raw, float temp_c)
     return tds_ppm;
 }
 
-//NEW_WEBSITE_CODE
+// ---------- New Addition Wi-Fi Access Point ----------
+
 static void wifi_init_ap(void)
 {
     ESP_ERROR_CHECK(esp_netif_init());
@@ -1908,10 +1944,12 @@ static void wifi_init_ap(void)
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    ESP_LOGI("WIFI", "FROGS WiFi started. Connect to FROGS_Controller");
+    ESP_LOGI("WIFI", "FROGS WiFi started");
+    ESP_LOGI("WIFI", "SSID: FROGS_Controller");
     ESP_LOGI("WIFI", "Open browser to http://192.168.4.1");
 }
 
+// ---------- Web Server Handlers ----------
 
 static esp_err_t root_get_handler(httpd_req_t *req)
 {
@@ -1923,17 +1961,19 @@ static esp_err_t root_get_handler(httpd_req_t *req)
 
 static esp_err_t data_get_handler(httpd_req_t *req)
 {
-    char json[256];
+    char json[320];
 
     float battery = 0.0f;
     float temp_c = 0.0f;
     float tds = 0.0f;
     float flow1 = 0.0f;
     float flow2 = 0.0f;
-    bool pump1 = false;
-    bool pump2 = false;
-    bool p1_enabled = true;
-    bool p2_enabled = true;
+    bool lp_pump = false;
+    bool hp_pump = false;
+    bool lp_enabled = true;
+    bool hp_enabled = true;
+    bool temp_valid = false;
+    bool tds_valid = false;
 
     if (xSemaphoreTake(state_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
         battery = g_battery_voltage;
@@ -1941,14 +1981,16 @@ static esp_err_t data_get_handler(httpd_req_t *req)
         tds = g_tds_ppm;
         flow1 = g_flow1_lpm;
         flow2 = g_flow2_lpm;
-        pump1 = g_pump_running;
-        pump2 = g_pump2_running;
+        lp_pump = g_lp_pump_running;
+        hp_pump = g_hp_pump_running;
+        temp_valid = g_temp_valid;
+        tds_valid = g_tds_valid;
         xSemaphoreGive(state_mutex);
     }
 
     if (xSemaphoreTake(voltage_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
-        p1_enabled = g_p1_enable;
-        p2_enabled = g_p2_enable;
+        lp_enabled = g_lp_pump_enable;
+        hp_enabled = g_hp_pump_enable;
         xSemaphoreGive(voltage_mutex);
     }
 
@@ -1957,69 +1999,78 @@ static esp_err_t data_get_handler(httpd_req_t *req)
 
     snprintf(json, sizeof(json),
              "{\"tds\":%.1f,\"temperature\":%.1f,\"flowRate\":%.2f,"
-             "\"battery\":%.2f,\"pump\":\"Feed:%s Return:%s\","
-             "\"pump1Enabled\":%s,\"pump2Enabled\":%s}",
+             "\"battery\":%.2f,\"pump\":\"LP:%s HP:%s\","
+             "\"lpPumpEnabled\":%s,\"hpPumpEnabled\":%s,"
+             "\"tempValid\":%s,\"tdsValid\":%s}",
              tds,
              temp_f,
              total_flow,
              battery,
-             pump1 ? "ON" : "OFF",
-             pump2 ? "ON" : "OFF",
-             p1_enabled ? "true" : "false",
-             p2_enabled ? "true" : "false");
+             lp_pump ? "ON" : "OFF",
+             hp_pump ? "ON" : "OFF",
+             lp_enabled ? "true" : "false",
+             hp_enabled ? "true" : "false",
+             temp_valid ? "true" : "false",
+             tds_valid ? "true" : "false");
 
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_send(req, json, HTTPD_RESP_USE_STRLEN);
 }
 
-static esp_err_t pump1_enable_handler(httpd_req_t *req)
+static esp_err_t lp_enable_handler(httpd_req_t *req)
 {
     if (xSemaphoreTake(voltage_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
-        g_p1_enable = true;
-        xSemaphoreGive(voltage_mutex);
+        g_lp_pump_enable = true;
         nvs_save_voltages();
+        xSemaphoreGive(voltage_mutex);
     }
 
-    return httpd_resp_sendstr(req, "Feed Pump enabled");
+    return httpd_resp_sendstr(req, "LP pump enabled");
 }
 
-static esp_err_t pump1_disable_handler(httpd_req_t *req)
+static esp_err_t lp_disable_handler(httpd_req_t *req)
 {
     if (xSemaphoreTake(voltage_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
-        g_p1_enable = false;
-        xSemaphoreGive(voltage_mutex);
+        g_lp_pump_enable = false;
         nvs_save_voltages();
+        xSemaphoreGive(voltage_mutex);
     }
 
-    return httpd_resp_sendstr(req, "Pump 1 disabled");
+    return httpd_resp_sendstr(req, "LP pump disabled");
 }
 
-static esp_err_t pump2_enable_handler(httpd_req_t *req)
+static esp_err_t hp_enable_handler(httpd_req_t *req)
 {
     if (xSemaphoreTake(voltage_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
-        g_p2_enable = true;
-        xSemaphoreGive(voltage_mutex);
+        g_hp_pump_enable = true;
         nvs_save_voltages();
+        xSemaphoreGive(voltage_mutex);
     }
 
-    return httpd_resp_sendstr(req, "Pump 2 enabled");
+    return httpd_resp_sendstr(req, "HP pump enabled");
 }
 
-static esp_err_t pump2_disable_handler(httpd_req_t *req)
+static esp_err_t hp_disable_handler(httpd_req_t *req)
 {
     if (xSemaphoreTake(voltage_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
-        g_p2_enable = false;
-        xSemaphoreGive(voltage_mutex);
+        g_hp_pump_enable = false;
         nvs_save_voltages();
+        xSemaphoreGive(voltage_mutex);
     }
 
-    return httpd_resp_sendstr(req, "Pump 2 disabled");
+    return httpd_resp_sendstr(req, "HP pump disabled");
 }
 
 static void start_webserver(void)
 {
+    static httpd_handle_t server = NULL;
+
+    if (server != NULL) {
+        ESP_LOGW("WEB", "Web server already running");
+        return;
+    }
+
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    httpd_handle_t server = NULL;
 
     ESP_ERROR_CHECK(httpd_start(&server, &config));
 
@@ -2037,44 +2088,43 @@ static void start_webserver(void)
         .user_ctx = NULL
     };
 
-    httpd_uri_t pump1_enable_uri = {
-        .uri = "/pump1/enable",
+    httpd_uri_t lp_enable_uri = {
+        .uri = "/lp/enable",
         .method = HTTP_GET,
-        .handler = pump1_enable_handler,
+        .handler = lp_enable_handler,
         .user_ctx = NULL
     };
 
-    httpd_uri_t pump1_disable_uri = {
-        .uri = "/pump1/disable",
+    httpd_uri_t lp_disable_uri = {
+        .uri = "/lp/disable",
         .method = HTTP_GET,
-        .handler = pump1_disable_handler,
+        .handler = lp_disable_handler,
         .user_ctx = NULL
     };
 
-    httpd_uri_t pump2_enable_uri = {
-        .uri = "/pump2/enable",
+    httpd_uri_t hp_enable_uri = {
+        .uri = "/hp/enable",
         .method = HTTP_GET,
-        .handler = pump2_enable_handler,
+        .handler = hp_enable_handler,
         .user_ctx = NULL
     };
 
-    httpd_uri_t pump2_disable_uri = {
-        .uri = "/pump2/disable",
+    httpd_uri_t hp_disable_uri = {
+        .uri = "/hp/disable",
         .method = HTTP_GET,
-        .handler = pump2_disable_handler,
+        .handler = hp_disable_handler,
         .user_ctx = NULL
     };
 
     httpd_register_uri_handler(server, &root_uri);
     httpd_register_uri_handler(server, &data_uri);
-    httpd_register_uri_handler(server, &pump1_enable_uri);
-    httpd_register_uri_handler(server, &pump1_disable_uri);
-    httpd_register_uri_handler(server, &pump2_enable_uri);
-    httpd_register_uri_handler(server, &pump2_disable_uri);
+    httpd_register_uri_handler(server, &lp_enable_uri);
+    httpd_register_uri_handler(server, &lp_disable_uri);
+    httpd_register_uri_handler(server, &hp_enable_uri);
+    httpd_register_uri_handler(server, &hp_disable_uri);
 
     ESP_LOGI("WEB", "Web server started");
 }
-
 
 // ---------- Main Application ----------
 
@@ -2092,19 +2142,16 @@ void app_main(void)
     // Create mutexes
     state_mutex = xSemaphoreCreateMutex();
     voltage_mutex = xSemaphoreCreateMutex();
-    
+
     if (state_mutex == NULL || voltage_mutex == NULL) {
         ESP_LOGE(TAG_MAIN, "Failed to create mutexes!");
         return;
     }
     ESP_LOGI(TAG_MAIN, "Mutexes created");
 
-    
-    //ADDITION
+    // Start ESP32 Wi-Fi access point and web server
     wifi_init_ap();
     start_webserver();
-    //
-
     
     ESP_ERROR_CHECK(ble_init());
     ESP_LOGI(TAG_MAIN, "BLE initialized");
@@ -2115,15 +2162,15 @@ void app_main(void)
     ESP_LOGI(TAG_MAIN, "LED GPIO configured");
 
     // Configure pump GPIO
-    gpio_reset_pin(FEED_PUMP_PIN);
-    gpio_set_direction(FEED_PUMP_PIN, GPIO_MODE_OUTPUT);
-    gpio_set_level(FEED_PUMP_PIN, 0);
-    ESP_LOGI(TAG_MAIN, "Pump 1 configured: GPIO%d (U3)", FEED_PUMP_PIN);
+    gpio_reset_pin(LP_PUMP);
+    gpio_set_direction(LP_PUMP, GPIO_MODE_OUTPUT);
+    gpio_set_level(LP_PUMP, 0);
+    ESP_LOGI(TAG_MAIN, "Pump 1 configured: GPIO%d (U3)", LP_PUMP);
 
-    gpio_reset_pin(PUMP2_PIN);
-    gpio_set_direction(PUMP2_PIN, GPIO_MODE_OUTPUT);
-    gpio_set_level(PUMP2_PIN, 0);
-    ESP_LOGI(TAG_MAIN, "Pump 2 configured: GPIO%d (U1)", PUMP2_PIN);
+    gpio_reset_pin(HP_PUMP);
+    gpio_set_direction(HP_PUMP, GPIO_MODE_OUTPUT);
+    gpio_set_level(HP_PUMP, 0);
+    ESP_LOGI(TAG_MAIN, "Pump 2 configured: GPIO%d (U1)", HP_PUMP);
 
     // Configure joystick SW (click) GPIO
     gpio_reset_pin(JOY_SW_PIN);
@@ -2154,16 +2201,16 @@ void app_main(void)
     ESP_LOGI(TAG_MAIN, "ADC1 configured: battery(GPIO34), LDR(GPIO35), JoyX(GPIO36), JoyY(GPIO39)");
 
     // Configure ADC2 for TDS
-    /*
+    
     adc_oneshot_unit_init_cfg_t adc2_init_config = {
         .unit_id = ADC_UNIT_2,
         .ulp_mode = ADC_ULP_MODE_DISABLE,
     };
     ESP_ERROR_CHECK(adc_oneshot_new_unit(&adc2_init_config, &adc2_handle));
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc2_handle, TDS_ADC2_CHANNEL, &adc_chan_config));
-    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc2_handle, IS_3_4_CHANNEL, &adc_chan_config));
+    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc2_handle, IS_1_2_CHANNEL, &adc_chan_config));
     ESP_LOGI(TAG_MAIN, "ADC2 configured: TDS(GPIO27, ADC2_CH7), IS(GPIO25, ADC2_CH8)");
-    */
+    
 
     // Configure DEN 1+3 pin (diagnosis enable for U1+U3)
     gpio_reset_pin(DEN_1_3_PIN);
