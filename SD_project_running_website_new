@@ -973,7 +973,7 @@
         return;
       }
       try {
-        await fetch(enabled ? "/pump1/enable" : "/pump1/disable");
+        await fetch(enabled ? "/lp/enable" : "/lp/disable");
       } finally {
         getSensorData();
       }
@@ -987,7 +987,7 @@
         return;
       }
       try {
-        await fetch(enabled ? "/pump2/enable" : "/pump2/disable");
+        await fetch(enabled ? "/hp/enable" : "/hp/disable");
       } finally {
         getSensorData();
       }
