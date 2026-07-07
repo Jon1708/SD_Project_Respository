@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>F.R.O.G.S. Web App</title>
+
+  <style>
+    :root {
+      --ucf-gold: #d4af37;
+      --ucf-black: #050505;
+      --panel: #121212;
+      --muted: #aaaaaa;
+      --good: #4fe08b;
+      --warn: #ffd34d;
+      --bad: #ff6a6a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background-color: var(--ucf-black);
+      color: white;
+      font-family: Arial, sans-serif;
+      padding-bottom: 98px;
+    }
+
+    .app {
+      padding: 25px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      color: var(--ucf-gold);
+      letter-spacing: 2px;
+      margin: 0 0 10px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: var(--muted);
+      margin: 0 0 25px;
+    }
+
+    .status-card,
+    .sensor-card,
+    .switch-card,
+    .info-card {
+      border: 2px solid var(--ucf-gold);
+      border-radius: 18px;
+      padding: 20px;
+      background-color: var(--panel);
+    }
+
+    .status-card {
+      margin-bottom: 25px;
+    }
+
+    .status-card h2,
+    .sensor-card h3,
+    .switch-card h3,
+    .info-card h3 {
+      color: var(--ucf-gold);
+      margin-top: 0;
+    }
+
+    .sensor-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 18px;
+    }
+
+    .sensor-card {
+      text-align: center;
+    }
+
+    .icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .value {
+      font-size: 28px;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+
+    .label {
+      color: var(--muted);
+      margin-bottom: 0;
+    }
+
+    .switch-row,
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 25px;
+    }
+
+    .switch-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .switch {
+      position: relative;
+      width: 60px;
+      height: 34px;
+      flex: 0 0 auto;
+    }
+
+    .switch input {
+      display: none;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: #444;
+      border-radius: 34px;
+      transition: 0.3s;
+    }
+
+    .slider:before {
+      content: "";
+      position: absolute;
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+
+    input:checked + .slider {
+      background-color: var(--ucf-gold);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+
+    .refresh-row {
+      margin-top: 25px;
+      text-align: center;
+    }
+
+    .refresh-btn {
+      background-color: var(--ucf-gold);
+      color: black;
+      border: none;
+      border-radius: 14px;
+      padding: 14px 28px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .refresh-btn:active {
+      transform: scale(0.98);
+    }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .section-heading {
+      color: var(--ucf-gold);
+      margin: 0 0 8px;
+    }
+
+    .section-note {
+      color: var(--muted);
+      margin: 0 0 22px;
+    }
+
+    .state-good { color: var(--good); font-weight: bold; }
+    .state-warn { color: var(--warn); font-weight: bold; }
+    .state-bad { color: var(--bad); font-weight: bold; }
+
+    .bar-track {
+      height: 16px;
+      border: 1px solid var(--ucf-gold);
+      background: #050505;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: var(--ucf-gold);
+      width: 0%;
+      transition: width 0.35s ease;
+    }
+
+    .setting-row {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 12px;
+      align-items: center;
+      border-top: 1px solid #343434;
+      padding: 14px 0;
+    }
+
+    .setting-row:first-of-type { border-top: 0; }
+
+    .setting-row input {
+      width: 100%;
+      padding: 10px 12px;
+      background: #050505;
+      color: white;
+      border: 1px solid var(--ucf-gold);
+      border-radius: 10px;
+      font-size: 16px;
+    }
+
+    .small-note {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .bottom-tabs {
+      position: fixed;
+      z-index: 20;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #0d0d0d;
+      border-top: 2px solid var(--ucf-gold);
+      display: flex;
+      justify-content: center;
+      gap: 4px;
+      padding: 10px max(10px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      background: transparent;
+      color: #d9d9d9;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      padding: 11px 15px;
+      font-weight: bold;
+      cursor: pointer;
+      white-space: nowrap;
+      min-width: 86px;
+    }
+
+    .tab-btn.active {
+      background: var(--ucf-gold);
+      color: black;
+      border-color: var(--ucf-gold);
+    }
+
+
+    .override-card {
+      border: 2px solid var(--ucf-gold);
+      border-radius: 18px;
+      padding: 20px;
+      background-color: var(--panel);
+    }
+
+    .override-card h3 {
+      color: var(--ucf-gold);
+      margin-top: 0;
+    }
+
+    .override-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .override-btn {
+      border: 1px solid var(--ucf-gold);
+      background: #050505;
+      color: white;
+      border-radius: 12px;
+      padding: 11px 15px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .override-btn.active {
+      background: var(--ucf-gold);
+      color: black;
+    }
+
+    .override-btn.stop {
+      border-color: #ff6a6a;
+      color: #ff8d8d;
+    }
+
+    .override-btn.stop.active {
+      background: #ff6a6a;
+      color: black;
+    }
+
+    .admin-warning {
+      border: 1px solid #ffbf47;
+      background: #2b210c;
+      border-radius: 12px;
+      padding: 13px;
+      margin-top: 18px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 1050px) {
+      .sensor-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 650px) {
+      .app { padding: 18px; }
+      .sensor-grid,
+      .switch-row,
+      .info-grid { grid-template-columns: 1fr; }
+      .status-card,
+      .sensor-card,
+      .switch-card,
+      .info-card { padding: 17px; }
+      h1 { font-size: 24px; }
+      .tab-btn { min-width: 72px; padding: 10px 11px; font-size: 12px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <h1>F.R.O.G.S. Water System</h1>
+    <p class="subtitle">Filtration Resource for Off-Grid Systems · Monitor on Home · Configure in Admin</p>
+
+    <!-- HOME: Keeps the original UCF dashboard format -->
+    <section id="homePage" class="page active">
+      <div class="status-card">
+        <h2>System Status</h2>
+        <p id="connectionStatus">❌ Device Disconnected</p>
+        <p id="wifiStatus">⚠️ Waiting for ESP32 connection...</p>
+        <p id="systemBlock">System state: <span class="state-warn">WAITING FOR DATA</span></p>
+      </div>
+
+      <div class="sensor-grid">
+        <div class="sensor-card">
+          <div class="icon">💧</div>
+          <h3>TDS</h3>
+          <p class="value" id="tdsValue">-- ppm</p>
+          <p class="label">Water Purity</p>
+        </div>
+
+        <div class="sensor-card">
+          <div class="icon">🌡️</div>
+          <h3>Temperature</h3>
+          <p class="value" id="tempValue">-- °F</p>
+          <p class="label">Water Temperature</p>
+        </div>
+
+        <div class="sensor-card">
+          <div class="icon">🌊</div>
+          <h3>Flow 1</h3>
+          <p class="value" id="flowValue">-- L/min</p>
+          <p class="label">Input Water Flow</p>
+        </div>
+
+        <div class="sensor-card">
+          <div class="icon">🚰</div>
+          <h3>Flow 2</h3>
+          <p class="value" id="homeFlow2Value">-- L/min</p>
+          <p class="label">Output Water Flow</p>
+        </div>
+
+        <div class="sensor-card">
+          <div class="icon">📊</div>
+          <h3>F1 : F2</h3>
+          <p class="value" id="homeRatioValue">-- : --</p>
+          <p class="label">Direct Flow Values</p>
+        </div>
+
+        <div class="sensor-card">
+          <div class="icon">🔋</div>
+          <h3>Battery</h3>
+          <p class="value" id="batteryValue">-- V</p>
+          <p class="label">Battery Voltage</p>
+        </div>
+
+        <div class="sensor-card">
+          <div class="icon">☀️</div>
+          <h3>LDR State</h3>
+          <p class="value" id="homeLdrState">--</p>
+          <p class="label" id="homeLdrValue">Light Sensor</p>
+        </div>
+
+        <div class="sensor-card">
+          <div class="icon">🪣</div>
+          <h3>Tank Status</h3>
+          <p class="value" id="tankStatusValue">--</p>
+          <p class="label" id="tankStatusDetail">Float Switch: --</p>
+        </div>
+      </div>
+
+      <div class="switch-row">
+        <div class="switch-card">
+          <div>
+            <h3>Pump 1 Enable</h3>
+            <p class="small-note">Requests Pump 1 operation. Hardware safety rules remain active.</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="pump1Switch" onchange="setPump1(this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="switch-card">
+          <div>
+            <h3>Pump 2 Enable</h3>
+            <p class="small-note">Requests Pump 2 operation. Hardware safety rules remain active.</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="pump2Switch" onchange="setPump2(this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="refresh-row">
+        <button class="refresh-btn" onclick="getSensorData()">Refresh Data</button>
+      </div>
+    </section>
+
+    <!-- WATER: Mirrors the OLED water-quality screen in the original UCF card style -->
+    <section id="waterPage" class="page">
+      <h2 class="section-heading">Water Quality</h2>
+      <p class="section-note">Expanded version of the OLED temperature, TDS, flow, and ratio screen.</p>
+
+      <div class="sensor-grid">
+        <div class="sensor-card">
+          <div class="icon">💧</div>
+          <h3>TDS</h3>
+          <p class="value" id="waterTds">-- ppm</p>
+          <p class="label">Total Dissolved Solids</p>
+        </div>
+        <div class="sensor-card">
+          <div class="icon">🌡️</div>
+          <h3>Temperature</h3>
+          <p class="value" id="waterTemp">-- °F</p>
+          <p class="label">Water Temperature</p>
+        </div>
+        <div class="sensor-card">
+          <div class="icon">🌊</div>
+          <h3>Flow 1</h3>
+          <p class="value" id="flow1Value">-- L/min</p>
+          <p class="label">Input Flow</p>
+        </div>
+        <div class="sensor-card">
+          <div class="icon">🚰</div>
+          <h3>Flow 2</h3>
+          <p class="value" id="flow2Value">-- L/min</p>
+          <p class="label">Output Flow</p>
+        </div>
+        <div class="sensor-card">
+          <div class="icon">📊</div>
+          <h3>F1 : F2</h3>
+          <p class="value" id="ratioValue">-- : --</p>
+          <p class="label">Input : Output Flow</p>
+        </div>
+      </div>
+
+      <div class="info-grid">
+        <div class="info-card">
+          <h3>Water Condition</h3>
+          <p id="waterCondition" class="state-warn">Waiting for sensor data</p>
+          <p class="small-note">This status can later be tied to your selected TDS and flow thresholds.</p>
+        </div>
+        <div class="info-card">
+          <h3>Filtration Performance</h3>
+          <p id="ratioText">Output-to-input flow ratio: --</p>
+          <div class="bar-track"><div id="ratioBar" class="bar-fill"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LIGHT: Mirrors the OLED daylight/LDR screen -->
+    <section id="lightPage" class="page">
+      <h2 class="section-heading">Light & Daylight Status</h2>
+      <p class="section-note">Expanded version of the OLED clock/light screen used to show day or night conditions.</p>
+
+      <div class="sensor-grid">
+        <div class="sensor-card">
+          <div class="icon">☀️</div>
+          <h3>Daylight</h3>
+          <p class="value" id="daylightValue">--</p>
+          <p class="label">Current State</p>
+        </div>
+        <div class="sensor-card">
+          <div class="icon">🔆</div>
+          <h3>LDR Reading</h3>
+          <p class="value" id="ldrValue">--</p>
+          <p class="label">Light Sensor Value</p>
+        </div>
+        <div class="sensor-card">
+          <div class="icon">🕒</div>
+          <h3>Clock</h3>
+          <p class="value" id="clockValue">--:--</p>
+          <p class="label">Local Device Time</p>
+        </div>
+        <div class="sensor-card">
+          <div class="icon">1️⃣</div>
+          <h3>LP Request</h3>
+          <p class="value" id="lpRequest">OFF</p>
+          <p class="label">Low-Pressure Pump</p>
+        </div>
+        <div class="sensor-card">
+          <div class="icon">2️⃣</div>
+          <h3>HP Request</h3>
+          <p class="value" id="hpRequest">OFF</p>
+          <p class="label">High-Pressure Pump</p>
+        </div>
+      </div>
+
+      <div class="status-card" style="margin-top:25px;">
+        <h2>Daylight Safety</h2>
+        <p id="lightSafetyText">Day/night safety state will appear here when data is received.</p>
+      </div>
+    </section>
+
+    <!-- MANUAL: Mirrors the OLED Manual/Clock Stick screen -->
+    <section id="manualPage" class="page">
+      <h2 class="section-heading">Manual Control</h2>
+      <p class="section-note">This page matches the OLED manual screen but provides full-size pump controls.</p>
+
+      <div class="switch-row">
+        <div class="switch-card">
+          <div>
+            <h3>Low-Pressure Pump</h3>
+            <p id="lpManualStatus" class="small-note">Current request: OFF</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="manualPump1Switch" onchange="syncPump1(this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="switch-card">
+          <div>
+            <h3>High-Pressure Pump</h3>
+            <p id="hpManualStatus" class="small-note">Current request: OFF</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="manualPump2Switch" onchange="syncPump2(this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="status-card" style="margin-top:25px;">
+        <h2>Safety Notice</h2>
+        <p class="state-warn">Manual requests do not override battery, float, daylight, flow, or other firmware safety protections.</p>
+        <p id="manualSafetyDetail" class="small-note">The ESP32 will continue to determine whether pump operation is allowed.</p>
+      </div>
+    </section>
+
+    <!-- ADMIN: Mirrors the OLED Admin Edit screen -->
+    <section id="adminPage" class="page">
+      <h2 class="section-heading">Admin Settings</h2>
+      <p class="section-note">This page contains the OLED Admin Edit values, including the low-voltage shutdown control for the F.R.O.G.S. system.</p>
+
+      <div class="info-grid">
+        <div class="info-card">
+          <h3>Current Protection Status</h3>
+          <div class="setting-row"><span>Battery Voltage Now</span><strong id="adminBatteryReadout">-- V</strong></div>
+          <div class="setting-row"><span>Low-Voltage Disconnect (LVD)</span><strong id="lvdReadout">-- V</strong></div>
+          <div class="setting-row"><span>Minimum Voltage Restart (MVR)</span><strong id="mvrReadout">-- V</strong></div>
+          <div class="setting-row"><span>Daylight Threshold</span><strong id="lightThresholdReadout">--</strong></div>
+          <div class="setting-row"><span>Minimum Flow</span><strong id="minFlowReadout">-- L/min</strong></div>
+        </div>
+
+        <div class="info-card">
+          <h3>Voltage Protection Control</h3>
+          <p class="small-note">LVD is the battery voltage at which F.R.O.G.S. shuts the system down to protect the battery. MVR is the voltage required before the system is allowed to restart.</p>
+
+          <div class="setting-row">
+            <label for="lvdSlider">Shutdown Voltage (LVD)</label>
+            <div>
+              <input id="lvdSlider" type="range" min="9.0" max="13.0" step="0.1" value="11.0" oninput="syncVoltageInputs('lvd')">
+              <input id="lvdInput" type="number" min="9.0" max="13.0" step="0.1" value="11.0" oninput="syncVoltageInputs('lvd', true)">
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <label for="mvrSlider">Restart Voltage (MVR)</label>
+            <div>
+              <input id="mvrSlider" type="range" min="9.2" max="13.5" step="0.1" value="12.0" oninput="syncVoltageInputs('mvr')">
+              <input id="mvrInput" type="number" min="9.2" max="13.5" step="0.1" value="12.0" oninput="syncVoltageInputs('mvr', true)">
+            </div>
+          </div>
+
+          <div class="refresh-row"><button class="refresh-btn" onclick="saveProtectionSettings()">Apply Voltage Settings</button></div>
+          <p id="adminNotice" class="small-note" style="text-align:center;"></p>
+        </div>
+
+        <div class="info-card">
+          <h3>Daylight Safety Control</h3>
+          <p class="small-note">Enable this when pumps should only be permitted under the configured light condition. Disable it when you want daylight/LDR blocking ignored for supervised testing.</p>
+
+          <div class="switch-card" style="margin-top:16px;">
+            <div>
+              <h3 style="margin-bottom:6px;">Daylight Threshold</h3>
+              <p id="daylightControlStatus" class="small-note">Protection: ENABLED</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="daylightEnableSwitch" checked onchange="setDaylightControl(this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row" style="margin-top:16px;">
+            <label for="daylightThresholdInput">LDR Threshold</label>
+            <input id="daylightThresholdInput" type="number" min="0" max="4095" step="1" value="1200" oninput="previewDaylightThreshold()">
+          </div>
+
+          <div class="refresh-row">
+            <button class="refresh-btn" onclick="saveDaylightThreshold()">Apply Daylight Settings</button>
+          </div>
+          <p id="daylightNotice" class="small-note" style="text-align:center;"></p>
+        </div>
+      </div>
+
+      <div class="status-card" style="margin-top:25px;">
+        <h2>Protection Rule</h2>
+        <p id="voltageRuleText" class="state-warn">The system will shut down at -- V and may restart at -- V.</p>
+        <p class="small-note">The webpage sends the values to the ESP32 only after the matching protected save route is added to firmware. It should also save them in NVS so the values remain after power is removed.</p>
+      </div>
+
+      <div class="info-grid">
+        <div class="override-card">
+          <h3>Low-Pressure Pump Override</h3>
+          <p id="lpOverrideState" class="state-warn">Override: OFF</p>
+          <p class="small-note">Use only for supervised maintenance and troubleshooting.</p>
+          <div class="override-actions">
+            <button id="lpOverrideOnBtn" class="override-btn" onclick="setPumpOverride('lp', true)">Enable Override</button>
+            <button id="lpOverrideOffBtn" class="override-btn stop active" onclick="setPumpOverride('lp', false)">Disable Override</button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="admin-warning">
+        <strong>Important:</strong> only the low-pressure pump has a temporary maintenance override. The high-pressure pump remains protected from Admin override commands. The ESP32 firmware should automatically clear the low-pressure override after a short timeout and when the system reboots.
+      </div>
+      <p id="overrideNotice" class="small-note" style="text-align:center; margin-top:14px;"></p>
+
+      <div class="status-card" style="margin-top:25px;">
+        <h2 style="margin-bottom:8px;">Individual Sensor Controls</h2>
+        <p class="small-note">Each switch controls normal sampling and display updates for that component. These are intended for supervised troubleshooting or maintenance. The ESP32 firmware should preserve any critical safety input it needs for emergency protection.</p>
+
+        <div class="info-grid" style="margin-top:18px;">
+          <div class="switch-card">
+            <div>
+              <h3>TDS Sensor</h3>
+              <p id="tdsSensorStatus" class="small-note">Monitoring: ENABLED</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="tdsSensorSwitch" checked onchange="setIndividualSensor('tds', this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="switch-card">
+            <div>
+              <h3>Temperature Sensor</h3>
+              <p id="tempSensorStatus" class="small-note">Monitoring: ENABLED</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="tempSensorSwitch" checked onchange="setIndividualSensor('temperature', this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="switch-card">
+            <div>
+              <h3>Flow Sensor 1</h3>
+              <p id="flow1SensorStatus" class="small-note">Monitoring: ENABLED</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="flow1SensorSwitch" checked onchange="setIndividualSensor('flow1', this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="switch-card">
+            <div>
+              <h3>Flow Sensor 2</h3>
+              <p id="flow2SensorStatus" class="small-note">Monitoring: ENABLED</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="flow2SensorSwitch" checked onchange="setIndividualSensor('flow2', this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="switch-card">
+            <div>
+              <h3>Battery Voltage Monitor</h3>
+              <p id="batterySensorStatus" class="small-note">Monitoring: ENABLED</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="batterySensorSwitch" checked onchange="setIndividualSensor('battery', this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="switch-card">
+            <div>
+              <h3>LDR / Light Sensor</h3>
+              <p id="ldrSensorStatus" class="small-note">Monitoring: ENABLED</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="ldrSensorSwitch" checked onchange="setIndividualSensor('ldr', this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="switch-card">
+            <div>
+              <h3>Float Switch</h3>
+              <p id="floatSensorStatus" class="small-note">Monitoring: ENABLED</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="floatSensorSwitch" checked onchange="setIndividualSensor('float', this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="admin-warning" style="margin-top:18px;">
+          <strong>Float-switch note:</strong> this is for supervised troubleshooting only. In the final ESP32 firmware, disabling the float switch should disable its normal monitoring display—not allow an unsafe pump condition to run without a separate, deliberate maintenance override.
+        </div>
+
+        <p id="sensorNotice" class="small-note" style="text-align:center; margin:18px 0 0;"></p>
+      </div>
+    </section>
+  </div>
+
+  <nav class="bottom-tabs" aria-label="FROGS app pages">
+    <button class="tab-btn active" data-page="homePage">HOME</button>
+    <button class="tab-btn" data-page="adminPage">ADMIN</button>
+  </nav>
+
+  <script>
+    const demoData = {
+      tds: 184,
+      temperature: 74.3,
+      flowRate: 1.25,
+      flow1: 1.42,
+      flow2: 1.18,
+      battery: 12.6,
+      pump: "OFF",
+      pump1Enabled: false,
+      pump2Enabled: false,
+      daylight: "NIGHT",
+      ldr: 0,
+      clock: "09:42",
+      lpRequest: "OFF",
+      hpRequest: "OFF",
+      tank: "OK",
+      blocked: "NIGHT",
+      lvd: 11.0,
+      mvr: 12.0,
+      daylightThreshold: 1200,
+      minFlow: 0.40,
+      lpOverride: false,
+      sensorStates: {
+        tds: true,
+        temperature: true,
+        flow1: true,
+        flow2: true,
+        battery: true,
+        ldr: true,
+        float: true
+      },
+      daylightSafetyEnabled: true,
+      floatUp: false
+    };
+
+    let lastData = { ...demoData };
+    let demoMode = false;
+
+    function setText(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.innerText = value;
+    }
+
+    function boolText(value) {
+      return value ? "ON" : "OFF";
+    }
+
+    function firstDefined(data, names, fallback) {
+      for (const name of names) {
+        if (data[name] !== undefined && data[name] !== null) return data[name];
+      }
+      return fallback;
+    }
+
+    function updatePage(data) {
+      const tds = firstDefined(data, ["tds", "tdsPpm"], "--");
+      const temperature = firstDefined(data, ["temperature", "temp"], "--");
+      const flow = firstDefined(data, ["flowRate", "flow", "flow1"], "--");
+      const flow1 = firstDefined(data, ["flow1", "inputFlow", "flowRate"], "--");
+      const flow2 = firstDefined(data, ["flow2", "outputFlow"], "--");
+      const battery = firstDefined(data, ["battery", "batteryVoltage"], "--");
+      const pump = firstDefined(data, ["pump", "pumpStatus"], "OFF");
+
+      const pump1 = Boolean(firstDefined(data, ["pump1Enabled", "lpEnabled", "lpRequested"], false));
+      const pump2 = Boolean(firstDefined(data, ["pump2Enabled", "hpEnabled", "hpRequested"], false));
+
+      setText("tdsValue", tds + " ppm");
+      setText("tempValue", temperature + " °F");
+      setText("flowValue", flow + " L/min");
+      setText("batteryValue", battery + " V");
+      setText("pumpValue", pump);
+
+      setText("waterTds", tds + " ppm");
+      setText("waterTemp", temperature + " °F");
+      setText("flow1Value", flow1 + " L/min");
+      setText("flow2Value", flow2 + " L/min");
+      setText("homeFlow2Value", flow2 + " L/min");
+
+      const n1 = Number(flow1);
+      const n2 = Number(flow2);
+      const flowPair = (Number.isFinite(n1) && Number.isFinite(n2))
+        ? n1.toFixed(2) + " : " + n2.toFixed(2)
+        : "-- : --";
+
+      setText("homeRatioValue", flowPair);
+      setText("ratioValue", flowPair);
+      setText("ratioText", "Flow 1 : Flow 2 = " + flowPair);
+
+      // The bar remains a quick visual comparison only; no ratio number is shown.
+      const barPercent = Number.isFinite(n1) && Number.isFinite(n2) && n1 > 0
+        ? Math.min(Math.max((n2 / n1) * 100, 0), 100)
+        : 0;
+      document.getElementById("ratioBar").style.width = barPercent + "%";
+
+      const tdsNumber = Number(tds);
+      const condition = Number.isFinite(tdsNumber)
+        ? (tdsNumber <= 500 ? "GOOD — TDS is within the current display limit." : "WARNING — TDS exceeds the current display limit.")
+        : "Waiting for sensor data";
+      setText("waterCondition", condition);
+      document.getElementById("waterCondition").className = Number.isFinite(tdsNumber) && tdsNumber <= 500 ? "state-good" : "state-warn";
+
+      document.getElementById("pump1Switch").checked = pump1;
+      document.getElementById("pump2Switch").checked = pump2;
+      document.getElementById("manualPump1Switch").checked = pump1;
+      document.getElementById("manualPump2Switch").checked = pump2;
+
+      setText("lpManualStatus", "Current request: " + boolText(pump1));
+      setText("hpManualStatus", "Current request: " + boolText(pump2));
+
+      const daylight = firstDefined(data, ["daylight", "lightState"], "UNKNOWN");
+      const ldr = firstDefined(data, ["ldr", "lightValue"], "--");
+      const clock = firstDefined(data, ["clock", "time"], "--:--");
+
+      setText("homeLdrState", daylight);
+      setText("homeLdrValue", "LDR: " + ldr);
+
+      // Assumed float logic: UP = tank full/high level; DOWN = tank low/needs water.
+      // If the installed float switch is wired or mounted in the opposite orientation,
+      // swap these labels in firmware or change this mapping.
+      const floatRaw = firstDefined(data, ["floatUp", "floatSwitchUp", "floatState", "tankFloat"], lastData.floatUp);
+      const floatIsUp = (floatRaw === true || floatRaw === 1 || floatRaw === "UP" || floatRaw === "up" || floatRaw === "HIGH" || floatRaw === "high" || floatRaw === "FULL" || floatRaw === "full");
+      const floatKnown = !(floatRaw === undefined || floatRaw === null || floatRaw === "--" || floatRaw === "UNKNOWN");
+
+      if (floatKnown) {
+        setText("tankStatusValue", floatIsUp ? "FULL" : "LOW");
+        setText("tankStatusDetail", "Float Switch: " + (floatIsUp ? "UP" : "DOWN"));
+        document.getElementById("tankStatusValue").className = "value " + (floatIsUp ? "state-good" : "state-warn");
+      } else {
+        setText("tankStatusValue", "UNKNOWN");
+        setText("tankStatusDetail", "Float Switch: No data");
+        document.getElementById("tankStatusValue").className = "value state-warn";
+      }
+      const lpReq = firstDefined(data, ["lpRequest", "lpRequested"], boolText(pump1));
+      const hpReq = firstDefined(data, ["hpRequest", "hpRequested"], boolText(pump2));
+
+      setText("daylightValue", daylight);
+      setText("ldrValue", ldr);
+      setText("clockValue", clock);
+      setText("lpRequest", lpReq);
+      setText("hpRequest", hpReq);
+
+      const blocked = firstDefined(data, ["blocked", "blockReason"], "NONE");
+      const tank = firstDefined(data, ["tank", "tankStatus"], "UNKNOWN");
+      const lightMsg = daylight === "NIGHT"
+        ? "Night state detected. Pump operation remains subject to the configured daylight safety rule."
+        : "Daylight state detected. Pump operation remains subject to all remaining safety rules.";
+      setText("lightSafetyText", lightMsg);
+      setText("manualSafetyDetail", "Tank: " + tank + " | Current lockout reason: " + blocked);
+
+      const blockedEl = document.getElementById("systemBlock");
+      blockedEl.innerHTML = "System state: <span class='" + (blocked === "NONE" || blocked === "OK" ? "state-good" : "state-warn") + "'>" + (blocked === "NONE" ? "SYSTEM OK" : "BLOCKED: " + blocked) + "</span>";
+
+      setText("lvdReadout", firstDefined(data, ["lvd"], "--") + " V");
+      setText("mvrReadout", firstDefined(data, ["mvr"], "--") + " V");
+      const currentDaylightThreshold = firstDefined(data, ["daylightThreshold", "ldrThreshold"], lastData.daylightThreshold);
+      const daylightSafetyEnabled = Boolean(firstDefined(data, ["daylightSafetyEnabled", "daylight_enabled", "daylightControlEnabled"], lastData.daylightSafetyEnabled !== false));
+
+      setText("lightThresholdReadout", currentDaylightThreshold);
+      setText("minFlowReadout", firstDefined(data, ["minFlow"], "--") + " L/min");
+      updateDaylightControlDisplay(daylightSafetyEnabled);
+
+      if (document.activeElement !== document.getElementById("daylightThresholdInput")) {
+        document.getElementById("daylightThresholdInput").value = currentDaylightThreshold;
+      }
+      setText("adminBatteryReadout", battery + " V");
+
+      const lpOverride = Boolean(firstDefined(data, ["lpOverride", "lp_override"], lastData.lpOverride || false));
+      updateOverrideDisplay("lp", lpOverride);
+
+      const sensorStates = firstDefined(data, ["sensorStates", "sensor_states"], lastData.sensorStates || {});
+      updateIndividualSensorDisplays(sensorStates);
+
+      const currentLvd = firstDefined(data, ["lvd"], lastData.lvd);
+      const currentMvr = firstDefined(data, ["mvr"], lastData.mvr);
+      setText("voltageRuleText", "The system will shut down at " + currentLvd + " V and may restart at " + currentMvr + " V.");
+
+      // Do not overwrite a value while the user is actively editing it.
+      if (document.activeElement !== document.getElementById("lvdInput") &&
+          document.activeElement !== document.getElementById("lvdSlider")) {
+        document.getElementById("lvdInput").value = currentLvd;
+        document.getElementById("lvdSlider").value = currentLvd;
+      }
+      if (document.activeElement !== document.getElementById("mvrInput") &&
+          document.activeElement !== document.getElementById("mvrSlider")) {
+        document.getElementById("mvrInput").value = currentMvr;
+        document.getElementById("mvrSlider").value = currentMvr;
+      }
+    }
+
+    async function getSensorData() {
+      try {
+        const response = await fetch("/data", { cache: "no-store" });
+        if (!response.ok) throw new Error("ESP32 returned HTTP " + response.status);
+        const data = await response.json();
+        lastData = { ...lastData, ...data };
+        demoMode = false;
+        updatePage(lastData);
+        setText("connectionStatus", "✅ Device Connected");
+        setText("wifiStatus", "ESP32 data received successfully.");
+      } catch (error) {
+        // Lets the HTML be previewed on a computer without the ESP32.
+        demoMode = true;
+        lastData = { ...demoData };
+        updatePage(lastData);
+        setText("connectionStatus", "🟡 Demo Mode");
+        setText("wifiStatus", "Open this webpage through the ESP32 to use live /data values.");
+      }
+    }
+
+    async function setPump1(enabled) {
+      if (demoMode) {
+        lastData.pump1Enabled = enabled;
+        lastData.lpRequest = boolText(enabled);
+        updatePage(lastData);
+        return;
+      }
+      try {
+        await fetch(enabled ? "/pump1/enable" : "/pump1/disable");
+      } finally {
+        getSensorData();
+      }
+    }
+
+    async function setPump2(enabled) {
+      if (demoMode) {
+        lastData.pump2Enabled = enabled;
+        lastData.hpRequest = boolText(enabled);
+        updatePage(lastData);
+        return;
+      }
+      try {
+        await fetch(enabled ? "/pump2/enable" : "/pump2/disable");
+      } finally {
+        getSensorData();
+      }
+    }
+
+    function syncPump1(enabled) {
+      document.getElementById("pump1Switch").checked = enabled;
+      setPump1(enabled);
+    }
+
+    function syncPump2(enabled) {
+      document.getElementById("pump2Switch").checked = enabled;
+      setPump2(enabled);
+    }
+
+    function updateDaylightControlDisplay(enabled) {
+      const switchEl = document.getElementById("daylightEnableSwitch");
+      const statusEl = document.getElementById("daylightControlStatus");
+      if (!switchEl || !statusEl) return;
+
+      switchEl.checked = enabled;
+      statusEl.textContent = "Protection: " + (enabled ? "ENABLED" : "DISABLED");
+      statusEl.className = enabled ? "state-good" : "state-warn";
+    }
+
+    function previewDaylightThreshold() {
+      const threshold = document.getElementById("daylightThresholdInput").value;
+      setText("daylightNotice", "New daylight threshold ready to apply: " + threshold);
+    }
+
+    async function setDaylightControl(enabled) {
+      const confirmationText = enabled
+        ? "Enable daylight threshold protection?"
+        : "Disable daylight threshold protection? Pumps may no longer be blocked based on the LDR state.";
+
+      if (!window.confirm(confirmationText)) {
+        document.getElementById("daylightEnableSwitch").checked = !enabled;
+        return;
+      }
+
+      if (demoMode) {
+        lastData.daylightSafetyEnabled = enabled;
+        updateDaylightControlDisplay(enabled);
+        localStorage.setItem("frogsDaylightSafetyEnabled", JSON.stringify(enabled));
+        setText("daylightNotice", enabled
+          ? "Demo mode: daylight threshold protection enabled."
+          : "Demo mode: daylight threshold protection disabled.");
+        return;
+      }
+
+      try {
+        const response = await fetch("/admin/daylight", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: enabled })
+        });
+
+        if (!response.ok) throw new Error("ESP32 returned HTTP " + response.status);
+        lastData.daylightSafetyEnabled = enabled;
+        updateDaylightControlDisplay(enabled);
+        setText("daylightNotice", enabled
+          ? "Daylight threshold protection enabled."
+          : "Daylight threshold protection disabled.");
+        getSensorData();
+      } catch (error) {
+        document.getElementById("daylightEnableSwitch").checked = !enabled;
+        setText("daylightNotice", "The webpage is ready, but the ESP32 still needs the /admin/daylight route before it can change the real daylight protection state.");
+      }
+    }
+
+    async function saveDaylightThreshold() {
+      const threshold = Number(document.getElementById("daylightThresholdInput").value);
+      if (!Number.isFinite(threshold) || threshold < 0 || threshold > 4095) {
+        setText("daylightNotice", "Enter a valid LDR threshold from 0 to 4095.");
+        return;
+      }
+
+      if (demoMode) {
+        lastData.daylightThreshold = threshold;
+        localStorage.setItem("frogsDaylightThreshold", JSON.stringify(threshold));
+        setText("lightThresholdReadout", threshold);
+        setText("daylightNotice", "Demo mode: daylight threshold saved as " + threshold + ".");
+        return;
+      }
+
+      try {
+        const response = await fetch("/admin/daylight", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ threshold: threshold })
+        });
+
+        if (!response.ok) throw new Error("ESP32 returned HTTP " + response.status);
+        lastData.daylightThreshold = threshold;
+        setText("lightThresholdReadout", threshold);
+        setText("daylightNotice", "Daylight threshold updated to " + threshold + ".");
+        getSensorData();
+      } catch (error) {
+        setText("daylightNotice", "The webpage is ready, but the ESP32 still needs the /admin/daylight route before it can save the real LDR threshold.");
+      }
+    }
+
+    const sensorConfig = {
+      tds: { switchId: "tdsSensorSwitch", statusId: "tdsSensorStatus", name: "TDS sensor" },
+      temperature: { switchId: "tempSensorSwitch", statusId: "tempSensorStatus", name: "temperature sensor" },
+      flow1: { switchId: "flow1SensorSwitch", statusId: "flow1SensorStatus", name: "Flow Sensor 1" },
+      flow2: { switchId: "flow2SensorSwitch", statusId: "flow2SensorStatus", name: "Flow Sensor 2" },
+      battery: { switchId: "batterySensorSwitch", statusId: "batterySensorStatus", name: "battery voltage monitor" },
+      ldr: { switchId: "ldrSensorSwitch", statusId: "ldrSensorStatus", name: "LDR / light sensor" },
+      float: { switchId: "floatSensorSwitch", statusId: "floatSensorStatus", name: "float switch" }
+    };
+
+    function getSensorState(states, key) {
+      if (states && typeof states[key] === "boolean") return states[key];
+      return true;
+    }
+
+    function updateIndividualSensorDisplays(states) {
+      Object.entries(sensorConfig).forEach(([key, config]) => {
+        const enabled = getSensorState(states, key);
+        const switchEl = document.getElementById(config.switchId);
+        const statusEl = document.getElementById(config.statusId);
+        if (switchEl) switchEl.checked = enabled;
+        if (statusEl) {
+          statusEl.textContent = "Monitoring: " + (enabled ? "ENABLED" : "DISABLED");
+          statusEl.className = enabled ? "state-good" : "state-warn";
+        }
+      });
+    }
+
+    async function setIndividualSensor(sensor, enabled) {
+      const config = sensorConfig[sensor];
+      if (!config) return;
+
+      const confirmationText = enabled
+        ? "Enable normal monitoring for the " + config.name + "?"
+        : "Disable normal monitoring for the " + config.name + "? This should only be done for supervised maintenance or troubleshooting.";
+
+      if (!window.confirm(confirmationText)) {
+        document.getElementById(config.switchId).checked = !enabled;
+        return;
+      }
+
+      if (demoMode) {
+        if (!lastData.sensorStates) lastData.sensorStates = {};
+        lastData.sensorStates[sensor] = enabled;
+        updateIndividualSensorDisplays(lastData.sensorStates);
+        localStorage.setItem("frogsSensorStates", JSON.stringify(lastData.sensorStates));
+        setText("sensorNotice", config.name + " monitoring is now " + (enabled ? "enabled." : "disabled.") + " (demo mode)");
+        return;
+      }
+
+      try {
+        const response = await fetch("/admin/sensor", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sensor: sensor,
+            enabled: enabled
+          })
+        });
+
+        if (!response.ok) throw new Error("ESP32 returned HTTP " + response.status);
+        if (!lastData.sensorStates) lastData.sensorStates = {};
+        lastData.sensorStates[sensor] = enabled;
+        updateIndividualSensorDisplays(lastData.sensorStates);
+        setText("sensorNotice", config.name + " monitoring is now " + (enabled ? "enabled." : "disabled."));
+        getSensorData();
+      } catch (error) {
+        document.getElementById(config.switchId).checked = !enabled;
+        setText("sensorNotice", "The webpage is ready, but the ESP32 still needs the protected /admin/sensor route before this switch can control the " + config.name + ".");
+      }
+    }
+
+    function updateOverrideDisplay(pump, enabled) {
+      const stateEl = document.getElementById(pump + "OverrideState");
+      const onBtn = document.getElementById(pump + "OverrideOnBtn");
+      const offBtn = document.getElementById(pump + "OverrideOffBtn");
+      if (!stateEl || !onBtn || !offBtn) return;
+
+      stateEl.textContent = "Override: " + (enabled ? "ON" : "OFF");
+      stateEl.className = enabled ? "state-bad" : "state-warn";
+      onBtn.classList.toggle("active", enabled);
+      offBtn.classList.toggle("active", !enabled);
+    }
+
+    async function setPumpOverride(pump, enabled) {
+      if (pump !== "lp") {
+        setText("overrideNotice", "High-pressure pump override is disabled for protection.");
+        return;
+      }
+      const humanName = "Low-pressure";
+      const confirmationText = enabled
+        ? "Enable the " + humanName + " pump maintenance override? This should only be used while someone is actively supervising the system."
+        : "Disable the " + humanName + " pump override and return to normal safety control?";
+
+      if (!window.confirm(confirmationText)) return;
+
+      if (demoMode) {
+        lastData[pump + "Override"] = enabled;
+        updateOverrideDisplay(pump, enabled);
+        localStorage.setItem("frogsPumpOverrides", JSON.stringify({
+          lpOverride: Boolean(lastData.lpOverride)
+        }));
+        setText("overrideNotice", humanName + " pump override is " + (enabled ? "enabled in demo mode." : "disabled in demo mode."));
+        return;
+      }
+
+      try {
+        const response = await fetch("/admin/override", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pump: pump,
+            enabled: enabled
+          })
+        });
+
+        if (!response.ok) throw new Error("ESP32 returned HTTP " + response.status);
+        lastData[pump + "Override"] = enabled;
+        updateOverrideDisplay(pump, enabled);
+        setText("overrideNotice", humanName + " pump override is now " + (enabled ? "enabled." : "disabled."));
+        getSensorData();
+      } catch (error) {
+        setText("overrideNotice", "The webpage is ready, but the ESP32 still needs the protected /admin/override route before it can apply pump overrides.");
+      }
+    }
+
+    function syncVoltageInputs(which, fromNumber = false) {
+      const slider = document.getElementById(which + "Slider");
+      const number = document.getElementById(which + "Input");
+      if (fromNumber) {
+        slider.value = number.value;
+      } else {
+        number.value = slider.value;
+      }
+      const lvd = Number(document.getElementById("lvdInput").value);
+      const mvr = Number(document.getElementById("mvrInput").value);
+      if (Number.isFinite(lvd) && Number.isFinite(mvr)) {
+        setText("voltageRuleText", "The system will shut down at " + lvd.toFixed(1) + " V and may restart at " + mvr.toFixed(1) + " V.");
+      }
+    }
+
+    async function saveProtectionSettings() {
+      const lvd = Number(document.getElementById("lvdInput").value);
+      const mvr = Number(document.getElementById("mvrInput").value);
+
+      if (!Number.isFinite(lvd) || !Number.isFinite(mvr)) {
+        setText("adminNotice", "Enter valid voltage values first.");
+        return;
+      }
+      if (mvr <= lvd) {
+        setText("adminNotice", "Restart voltage must be higher than the shutdown voltage.");
+        return;
+      }
+
+      const settings = { lvd, mvr };
+
+      if (demoMode) {
+        lastData.lvd = lvd;
+        lastData.mvr = mvr;
+        localStorage.setItem("frogsVoltageSettings", JSON.stringify(settings));
+        updatePage(lastData);
+        setText("adminNotice", "Demo mode: voltage protection values saved in this browser.");
+        return;
+      }
+
+      try {
+        const response = await fetch("/admin/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(settings)
+        });
+
+        if (!response.ok) throw new Error("ESP32 returned HTTP " + response.status);
+        lastData.lvd = lvd;
+        lastData.mvr = mvr;
+        updatePage(lastData);
+        setText("adminNotice", "Voltage protection settings applied to F.R.O.G.S.");
+      } catch (error) {
+        setText("adminNotice", "The webpage is ready, but the ESP32 still needs the /admin/settings save route added before it can apply voltage settings.");
+      }
+    }
+
+    document.querySelectorAll(".tab-btn").forEach(button => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".page").forEach(page => page.classList.remove("active"));
+        document.querySelectorAll(".tab-btn").forEach(tab => tab.classList.remove("active"));
+        document.getElementById(button.dataset.page).classList.add("active");
+        button.classList.add("active");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    });
+
+    try {
+      const savedVoltageSettings = JSON.parse(localStorage.getItem("frogsVoltageSettings"));
+      if (savedVoltageSettings && Number.isFinite(savedVoltageSettings.lvd) && Number.isFinite(savedVoltageSettings.mvr)) {
+        demoData.lvd = savedVoltageSettings.lvd;
+        demoData.mvr = savedVoltageSettings.mvr;
+        lastData.lvd = savedVoltageSettings.lvd;
+        lastData.mvr = savedVoltageSettings.mvr;
+      }
+
+      const savedPumpOverrides = JSON.parse(localStorage.getItem("frogsPumpOverrides"));
+      if (savedPumpOverrides) {
+        demoData.lpOverride = Boolean(savedPumpOverrides.lpOverride);
+        lastData.lpOverride = demoData.lpOverride;
+      }
+
+      const savedSensorStates = JSON.parse(localStorage.getItem("frogsSensorStates"));
+      if (savedSensorStates && typeof savedSensorStates === "object") {
+        demoData.sensorStates = { ...demoData.sensorStates, ...savedSensorStates };
+        lastData.sensorStates = { ...demoData.sensorStates };
+      }
+
+      const savedDaylightEnabled = JSON.parse(localStorage.getItem("frogsDaylightSafetyEnabled"));
+      if (typeof savedDaylightEnabled === "boolean") {
+        demoData.daylightSafetyEnabled = savedDaylightEnabled;
+        lastData.daylightSafetyEnabled = savedDaylightEnabled;
+      }
+
+      const savedDaylightThreshold = JSON.parse(localStorage.getItem("frogsDaylightThreshold"));
+      if (Number.isFinite(savedDaylightThreshold)) {
+        demoData.daylightThreshold = savedDaylightThreshold;
+        lastData.daylightThreshold = savedDaylightThreshold;
+      }
+    } catch (error) {
+      // No saved demo settings yet.
+    }
+
+    setInterval(getSensorData, 3000);
+    getSensorData();
+  </script>
+</body>
+</html>
