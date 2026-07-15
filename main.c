@@ -2600,13 +2600,15 @@ void adc_task(void *pvParameters)
 
     #define BAT_SCALE       5.7f
     #define BAT_CAL_FACTOR  1.048f
-    #define BAT_AVG_SAMPLES 100  
+    #define BAT_AVG_SAMPLES 100  // 100 samples @ 50ms loop = ~5s rolling window
 
-    TickType_t last_battery_read = 0;
+    TickType_t last_battery_publish = 0;
 
     static float battery_buffer[BAT_AVG_SAMPLES] = {0};
     static int battery_index = 0;
+    static int battery_count = 0;
     static float battery_sum = 0.0f;
+    static float battery_voltage = 0.0f;
 
     ESP_LOGI(TAG_ADC, "adc_task started");
     ESP_LOGI(TAG_ADC, "Battery: GPIO34 (ADC1_CH6), LDR: GPIO35 (ADC1_CH7)");
@@ -2616,24 +2618,32 @@ void adc_task(void *pvParameters)
 
     while (1) {
         // --- Battery ADC ---
-         TickType_t current_time = xTaskGetTickCount();
+        int raw = 0;
+        esp_err_t ret = adc_oneshot_read(adc_handle, ADC_CHANNEL, &raw);
 
-         if ((current_time - last_battery_read) >= pdMS_TO_TICKS(5000)) {
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG_ADC, "Battery ADC read failed: %s",
+                     esp_err_to_name(ret));
+            vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
+        }
 
-            last_battery_read = current_time;
-         }
-       int raw = 0;
-    esp_err_t ret = adc_oneshot_read(adc_handle, ADC_CHANNEL, &raw);
+        float adc_voltage = ((float)raw / 4095.0f) * 3.3f;
+        float sample_voltage = adc_voltage * BAT_SCALE * BAT_CAL_FACTOR;
 
-    if (ret != ESP_OK) {
-    ESP_LOGE(TAG_ADC, "Battery ADC read failed: %s",
-             esp_err_to_name(ret));
-    vTaskDelay(pdMS_TO_TICKS(50));
-    continue;
-            }
+        // Feed every sample into a rolling buffer, but only publish
+        // (update battery_voltage) once every 5 seconds for a stable reading.
+        battery_sum -= battery_buffer[battery_index];
+        battery_buffer[battery_index] = sample_voltage;
+        battery_sum += sample_voltage;
+        battery_index = (battery_index + 1) % BAT_AVG_SAMPLES;
+        if (battery_count < BAT_AVG_SAMPLES) battery_count++;
 
-float adc_voltage = ((float)raw / 4095.0f) * 3.3f;
-float battery_voltage = adc_voltage * BAT_SCALE * BAT_CAL_FACTOR;
+        TickType_t current_time = xTaskGetTickCount();
+        if ((current_time - last_battery_publish) >= pdMS_TO_TICKS(5000)) {
+            last_battery_publish = current_time;
+            battery_voltage = battery_sum / battery_count;
+        }
         // --- LDR ADC ---
         int ldr_raw = 0;
         ret = adc_oneshot_read(adc_handle, LDR_ADC_CHANNEL, &ldr_raw);
