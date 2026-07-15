@@ -9,6 +9,7 @@
 #include "driver/i2c.h"
 #include "driver/ledc.h"
 #include "esp_adc/adc_oneshot.h"
+#include "esp_attr.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "nvs_flash.h"
@@ -2605,8 +2606,8 @@ void adc_task(void *pvParameters)
 
         int avg_raw = sum / ADC_SAMPLES;
 
-// Battery voltage divider: R1=68kΩ, R2=15kΩ (ratio = 83/15)
-#define BAT_SCALE 3.636f
+// Battery voltage divider: R1=47kΩ, R2=10kΩ (ratio = 57/10)
+#define BAT_SCALE 5.7f
 float adc_voltage = (avg_raw / 4095.0f) * 3.3f;
 float battery_voltage = adc_voltage * BAT_SCALE;
 
@@ -2960,32 +2961,57 @@ void pump_task(void *pvParameters)
 
 // ---------- Flow Sensor Task ----------
 
+static volatile uint32_t g_flow1_pulses = 0;
+static volatile uint32_t g_flow2_pulses = 0;
+static volatile int64_t g_flow1_last_us = 0;
+static volatile int64_t g_flow2_last_us = 0;
+
+// Reject edges closer together than this (noise/ringing/floating-pin glitches).
+// 300us allows real pulses up to ~3.3kHz, far above any realistic flow rate
+// for this system (FLOW_CAL = 98Hz per L/min -> ~34 L/min before this would clip).
+#define FLOW_DEBOUNCE_US 300
+
+static void IRAM_ATTR flow1_isr_handler(void *arg)
+{
+    int64_t now = esp_timer_get_time();
+    if (now - g_flow1_last_us >= FLOW_DEBOUNCE_US) {
+        g_flow1_pulses++;
+        g_flow1_last_us = now;
+    }
+}
+
+static void IRAM_ATTR flow2_isr_handler(void *arg)
+{
+    int64_t now = esp_timer_get_time();
+    if (now - g_flow2_last_us >= FLOW_DEBOUNCE_US) {
+        g_flow2_pulses++;
+        g_flow2_last_us = now;
+    }
+}
+
 void flow_task(void *pvParameters)
 {
     (void)pvParameters;
 
     ESP_LOGI("FLOW", "flow_task started");
 
-    uint32_t count1 = 0, count2 = 0;
-    bool last1 = true, last2 = true;
-
     int64_t window_start = esp_timer_get_time() / 1000;
 
     while (1) {
-        bool cur1 = gpio_get_level(FEED_FLOW_PIN);
-        bool cur2 = gpio_get_level(PRODUCT_FLOW_PIN);
-
-        if (!cur1 && last1) count1++;
-        if (!cur2 && last2) count2++;
-        last1 = cur1;
-        last2 = cur2;
+        vTaskDelay(pdMS_TO_TICKS(50));
 
         int64_t now = esp_timer_get_time() / 1000;
         if ((now - window_start) >= FLOW_SAMPLE_MS) {
+            uint32_t count1 = g_flow1_pulses;
+            g_flow1_pulses -= count1;
+            uint32_t count2 = g_flow2_pulses;
+            g_flow2_pulses -= count2;
+
             float lpm1 = (count1 / FLOW_CAL);
             float lpm2 = (count2 / FLOW_CAL);
 
-            bool tank_full = gpio_get_level(FLOAT_SW_PIN);
+            int raw_float = gpio_get_level(FLOAT_SW_PIN);
+            bool tank_full = (raw_float == 0);
 
             if (xSemaphoreTake(state_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
                 g_flow1_lpm = lpm1;
@@ -2997,19 +3023,8 @@ void flow_task(void *pvParameters)
             ESP_LOGI("FLOW", "F1: %.2f L/min  F2: %.2f L/min  Float: %s",
                      lpm1, lpm2, tank_full ? "FULL" : "NOT FULL");
 
-            count1 = 0;
-            count2 = 0;
             window_start = now;
         }
-        int raw_float = gpio_get_level(FLOAT_SW_PIN);
-        bool tank_full = (raw_float == 0);
-
-        if (xSemaphoreTake(state_mutex, pdMS_TO_TICKS(10)) == pdTRUE)
-             {
-            g_tank_full = tank_full;
-            xSemaphoreGive(state_mutex);
-            }
-        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
 
@@ -3672,16 +3687,22 @@ void app_main(void)
         ESP_LOGW(TAG_MAIN, "Temperature sensor init failed: %s", esp_err_to_name(temp_err));
     }
 
-    // Configure flow sensor GPIOs (pull-up, active-low pulses)
+    // Configure flow sensor GPIOs (pull-up, active-low pulses, interrupt-driven counting)
     gpio_reset_pin(FEED_FLOW_PIN);
     gpio_set_direction(FEED_FLOW_PIN, GPIO_MODE_INPUT);
     gpio_set_pull_mode(FEED_FLOW_PIN, GPIO_PULLUP_ONLY);
+    gpio_set_intr_type(FEED_FLOW_PIN, GPIO_INTR_NEGEDGE);
     ESP_LOGI(TAG_MAIN, "Flow sensor 1: GPIO%d", FEED_FLOW_PIN);
 
     gpio_reset_pin(PRODUCT_FLOW_PIN);
     gpio_set_direction(PRODUCT_FLOW_PIN, GPIO_MODE_INPUT);
     gpio_set_pull_mode(PRODUCT_FLOW_PIN, GPIO_PULLUP_ONLY);
+    gpio_set_intr_type(PRODUCT_FLOW_PIN, GPIO_INTR_NEGEDGE);
     ESP_LOGI(TAG_MAIN, "Flow sensor 2: GPIO%d", PRODUCT_FLOW_PIN);
+
+    ESP_ERROR_CHECK(gpio_install_isr_service(0));
+    ESP_ERROR_CHECK(gpio_isr_handler_add(FEED_FLOW_PIN, flow1_isr_handler, NULL));
+    ESP_ERROR_CHECK(gpio_isr_handler_add(PRODUCT_FLOW_PIN, flow2_isr_handler, NULL));
 
     // Configure float switch GPIO (NC switch, pull-up: HIGH = open = tank full)
     gpio_reset_pin(FLOAT_SW_PIN);
