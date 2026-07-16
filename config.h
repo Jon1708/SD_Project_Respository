@@ -32,7 +32,7 @@
 #define LIGHT_OFF_DELAY_MS  15000    // Sustained darkness before pump blocked
 
 // ---------- Flow Sensors ----------
-#define FLOW_CAL            98.0f    // F = 98 * Q (Hz per L/min)
+#define FLOW_CAL            371.0f    // F = 98 * Q (Hz per L/min)
 #define FLOW_SAMPLE_MS      1000     // Pulse counting window
 
 // ---------- Pumps ----------
