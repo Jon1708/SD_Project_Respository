@@ -9,6 +9,8 @@
 #include "driver/i2c.h"
 #include "driver/ledc.h"
 #include "esp_adc/adc_oneshot.h"
+#include "esp_adc/adc_cali.h"
+#include "esp_adc/adc_cali_scheme.h"
 #include "esp_attr.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -124,6 +126,42 @@ static SemaphoreHandle_t voltage_mutex;
 
 // ADC handle
 static adc_oneshot_unit_handle_t adc_handle;
+
+// ADC calibration (converts raw counts to mV using the chip's factory-trimmed
+// eFuse curve, instead of an ideal-linear raw/4095*3300 assumption)
+static adc_cali_handle_t adc_cali_handle = NULL;
+static bool adc_cali_enabled = false;
+
+static void adc_calibration_init(void)
+{
+    adc_cali_line_fitting_config_t cali_config = {
+        .unit_id = ADC_UNIT_1,
+        .atten = ADC_ATTEN,
+        .bitwidth = ADC_BITWIDTH_12,
+    };
+
+    esp_err_t ret = adc_cali_create_scheme_line_fitting(&cali_config, &adc_cali_handle);
+    if (ret == ESP_OK) {
+        adc_cali_enabled = true;
+        ESP_LOGI(TAG_ADC, "ADC calibration (line fitting) enabled");
+    } else {
+        ESP_LOGW(TAG_ADC, "ADC calibration init failed (%s); using uncalibrated conversion",
+                 esp_err_to_name(ret));
+    }
+}
+
+// Converts a raw ADC1 reading to millivolts using the calibration curve when
+// available, falling back to a simple linear conversion otherwise.
+static int adc_raw_to_mv(int raw)
+{
+    if (adc_cali_enabled) {
+        int mv = 0;
+        if (adc_cali_raw_to_voltage(adc_cali_handle, raw, &mv) == ESP_OK) {
+            return mv;
+        }
+    }
+    return (int)((raw / 4095.0f) * 3300.0f);
+}
 
 // OLED framebuffer
 static uint8_t oled_buffer[OLED_WIDTH * OLED_HEIGHT / 8];
@@ -2599,7 +2637,8 @@ void adc_task(void *pvParameters)
     int tds_sum = 0;
 
     #define BAT_SCALE       5.7f
-    #define BAT_CAL_FACTOR  1.048f
+    #define BAT_CAL_FACTOR  1.0f  // was 1.048, tuned for the old uncalibrated ADC path;
+                                  // redundant now that adc_cali corrects the raw reading
     #define BAT_AVG_SAMPLES 100  // 100 samples @ 50ms loop = ~5s rolling window
 
     TickType_t last_battery_publish = 0;
@@ -2628,7 +2667,7 @@ void adc_task(void *pvParameters)
             continue;
         }
 
-        float adc_voltage = ((float)raw / 4095.0f) * 3.3f;
+        float adc_voltage = adc_raw_to_mv(raw) / 1000.0f;
         float sample_voltage = adc_voltage * BAT_SCALE * BAT_CAL_FACTOR;
 
         // Feed every sample into a rolling buffer, but only publish
@@ -2678,7 +2717,7 @@ void adc_task(void *pvParameters)
             tds_buffer_index = (tds_buffer_index + 1) % TDS_ADC_SAMPLES;
 
             int tds_avg = tds_sum / TDS_ADC_SAMPLES;
-            tds_voltage = (tds_avg / 4095.0f) * 3.3f;
+            tds_voltage = adc_raw_to_mv(tds_avg) / 1000.0f;
 
             // Get latest temperature for compensation
             if (xSemaphoreTake(state_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
@@ -2712,7 +2751,7 @@ void adc_task(void *pvParameters)
         {
             // IS pin outputs ~1.2kA/A — with a 4.7kΩ sense resistor: V = I_sense * R
             // BTS700x kILIS = 22900 (typ), so I_load = (V_IS / R_sense) * kILIS
-            float v_is = (is_raw / 4095.0f) * 3.3f;
+            float v_is = adc_raw_to_mv(is_raw) / 1000.0f;
             current_amps = (v_is/ 4730.0f) *22900.0f;
             current_valid = true; 
               ESP_LOGI(TAG_ADC, "Current = %.3f A (ADC=%d, V_IxS=%.3f V)", current_amps, is_raw, v_is);
@@ -3121,7 +3160,7 @@ void flow_task(void *pvParameters)
 float tds_calculate_ppm(int adc_raw, float temp_c)
 {
     // Convert ADC to voltage (ESP32 is 12-bit)
-    float voltage = (adc_raw / 4095.0f) * 3.3f;
+    float voltage = adc_raw_to_mv(adc_raw) / 1000.0f;
 
     // Temperature compensation (from datasheet)
     float compensation_coefficient = 1.0f + 0.02f * (temp_c - 25.0f);
@@ -3744,6 +3783,8 @@ void app_main(void)
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle, JOY_VRY_CHANNEL, &adc_chan_config));
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle, TDS_ADC_CHANNEL, &adc_chan_config));
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle, IS_1_2_CHANNEL, &adc_chan_config));
+
+    adc_calibration_init();
     ESP_LOGI(TAG_MAIN, "ADC1 configured: battery(GPIO34), LDR(GPIO35), JoyX(GPIO36), JoyY(GPIO39), TDS(GPIO33), IS(GPIO32)");
     
 
