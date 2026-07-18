@@ -3045,11 +3045,10 @@ static portMUX_TYPE flow1_mux = portMUX_INITIALIZER_UNLOCKED;
 static portMUX_TYPE flow2_mux = portMUX_INITIALIZER_UNLOCKED;
 
 // Reject edges closer than 300 microseconds
-#define FLOW_DEBOUNCE_US 300
+#define FLOW_DEBOUNCE_US 1000
 
 // Example:
 // FLOW_CAL = pulses per second for 1 L/min
-#define FLOW_CAL 98.0f
 
 static void IRAM_ATTR flow1_isr_handler(void *arg)
 {
@@ -3057,13 +3056,13 @@ static void IRAM_ATTR flow1_isr_handler(void *arg)
 
     int64_t now = esp_timer_get_time();
 
+    portENTER_CRITICAL_ISR(&flow1_mux);
+    
     if ((now - g_flow1_last_us) >= FLOW_DEBOUNCE_US) {
-        portENTER_CRITICAL_ISR(&flow1_mux);
         g_flow1_pulses++;
-        portEXIT_CRITICAL_ISR(&flow1_mux);
-
         g_flow1_last_us = now;
     }
+    portEXIT_CRITICAL_ISR(&flow1_mux);
 }
 
 static void IRAM_ATTR flow2_isr_handler(void *arg)
@@ -3072,13 +3071,13 @@ static void IRAM_ATTR flow2_isr_handler(void *arg)
 
     int64_t now = esp_timer_get_time();
 
-    if ((now - g_flow2_last_us) >= FLOW_DEBOUNCE_US) {
-        portENTER_CRITICAL_ISR(&flow2_mux);
-        g_flow2_pulses++;
-        portEXIT_CRITICAL_ISR(&flow2_mux);
+    portENTER_CRITICAL_ISR(&flow2_mux);
 
+    if ((now - g_flow2_last_us) >= FLOW_DEBOUNCE_US) {
+        g_flow2_pulses++;
         g_flow2_last_us = now;
     }
+    portEXIT_CRITICAL_ISR(&flow2_mux);
 }
 
 // ---------- Flow Sensor Task ----------
@@ -3116,18 +3115,20 @@ void flow_task(void *pvParameters)
             // Convert pulse count to pulse frequency
             float frequency1_hz = (float)count1 / elapsed_seconds;
             float frequency2_hz = (float)count2 / elapsed_seconds;
-
-            // FLOW_CAL is Hz per L/min
+            
             float lpm1 = frequency1_hz / FLOW_CAL;
             float lpm2 = frequency2_hz / FLOW_CAL;
+            // FLOW_CAL is Hz per L/min
+            float gpm1 = lpm1 * LITERS_TO_US_GALLONS;
+            float gpm2 = lpm2 * LITERS_TO_US_GALLONS;
 
             // Active-low float switch:
             // LOW = tank full
             bool tank_full = (gpio_get_level(FLOAT_SW_PIN) == 0);
 
             if (xSemaphoreTake(state_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-                g_flow1_lpm = lpm1;
-                g_flow2_lpm = lpm2;
+                g_flow1_gpm = gpm1;
+                g_flow2_gpm = gpm2;
                 g_tank_full = tank_full;
 
                 xSemaphoreGive(state_mutex);
@@ -3135,12 +3136,12 @@ void flow_task(void *pvParameters)
 
             ESP_LOGI(
                 "FLOW",
-                "F1: %.2f L/min (%lu pulses) | "
-                "F2: %.2f L/min (%lu pulses) | "
+                "F1: %.2f g/min (%lu pulses) | "
+                "F2: %.2f g/min (%lu pulses) | "
                 "Float: %s",
-                lpm1,
+                gpm1,
                 (unsigned long)count1,
-                lpm2,
+                gpm2,
                 (unsigned long)count2,
                 tank_full ? "FULL" : "NOT FULL"
             );
@@ -3151,6 +3152,7 @@ void flow_task(void *pvParameters)
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
+
 
 
 // -----------TDS to ppm Conversion--------
