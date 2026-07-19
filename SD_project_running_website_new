@@ -366,13 +366,6 @@
         </div>
 
         <div class="sensor-card">
-          <div class="icon">☀️</div>
-          <h3>LDR State</h3>
-          <p class="value" id="homeLdrState">--</p>
-          <p class="label" id="homeLdrValue">Light Sensor</p>
-        </div>
-
-        <div class="sensor-card">
           <div class="icon">🪣</div>
           <h3>Tank Status</h3>
           <p class="value" id="tankStatusValue">--</p>
@@ -431,11 +424,10 @@
 
       <div class="info-grid">
         <div class="info-card">
-          <h3>Current Protection Status</h3>
+          <h3>Protection Status</h3>
           <div class="setting-row"><span>Battery Voltage Now</span><strong id="adminBatteryReadout">-- V</strong></div>
           <div class="setting-row"><span>Low-Voltage Disconnect (LVD)</span><strong id="lvdReadout">-- V</strong></div>
           <div class="setting-row"><span>Minimum Voltage Restart (MVR)</span><strong id="mvrReadout">-- V</strong></div>
-          <div class="setting-row"><span>Daylight Threshold</span><strong id="lightThresholdReadout">--</strong></div>
           <div class="setting-row"><span>Minimum Flow</span><strong id="minFlowReadout">-- GPM</strong></div>
         </div>
 
@@ -463,31 +455,6 @@
           <p id="adminNotice" class="small-note" style="text-align:center;"></p>
         </div>
 
-        <div class="info-card">
-          <h3>Daylight Safety Control</h3>
-          <p class="small-note">This maps to the existing OLED LDR CHK setting in firmware once the admin route is connected.</p>
-
-          <div class="switch-card" style="margin-top:16px;">
-            <div>
-              <h3 style="margin-bottom:6px;">Daylight Threshold</h3>
-              <p id="daylightControlStatus" class="small-note">Protection: ENABLED</p>
-            </div>
-            <label class="switch">
-              <input type="checkbox" id="daylightEnableSwitch" checked onchange="setDaylightControl(this.checked)">
-              <span class="slider"></span>
-            </label>
-          </div>
-
-          <div class="setting-row" style="margin-top:16px;">
-            <label for="daylightThresholdInput">LDR Threshold</label>
-            <input id="daylightThresholdInput" type="number" min="0" max="4095" step="1" value="1500" oninput="previewDaylightThreshold()">
-          </div>
-
-          <div class="refresh-row">
-            <button class="refresh-btn" onclick="saveDaylightThreshold()">Apply Daylight Settings</button>
-          </div>
-          <p id="daylightNotice" class="small-note" style="text-align:center;"></p>
-        </div>
       </div>
 
       <div class="status-card" style="margin-top:25px;">
@@ -520,17 +487,6 @@
         <div class="info-grid" style="margin-top:18px;">
           <div class="switch-card">
             <div>
-              <h3>Light / Daylight Check</h3>
-              <p id="ldrCheckStatus" class="small-note">Daylight safety check: ENABLED</p>
-            </div>
-            <label class="switch">
-              <input type="checkbox" id="ldrCheckSwitch" checked onchange="setConditionCheck('ldr', this.checked)">
-              <span class="slider"></span>
-            </label>
-          </div>
-
-          <div class="switch-card">
-            <div>
               <h3>Float Switch Check</h3>
               <p id="floatCheckStatus" class="small-note">Tank float check: ENABLED</p>
             </div>
@@ -553,7 +509,7 @@
         </div>
 
         <div class="admin-warning" style="margin-top:18px;">
-          <strong>Safety note:</strong> these switches map directly to <code>g_ldr_check</code>, <code>g_float_check</code>, and <code>g_lvd_check</code>. They are the same checks shown on the OLED Admin screen, just written out with clearer names.
+          <strong>Safety note:</strong> these switches control the float-switch and low-voltage safety checks used by the firmware.
         </div>
 
         <p id="conditionNotice" class="small-note" style="text-align:center; margin:18px 0 0;"></p>
@@ -585,21 +541,16 @@
       battery: 12.6,
       pump1Enabled: false,
       pump2Enabled: false,
-      daylight: "NIGHT",
-      ldr: 0,
       tank: "LOW",
-      blocked: "NIGHT",
+      blocked: "NONE",
       lvd: 12.0,
       mvr: 12.8,
-      daylightThreshold: 1500,
       minFlow: 0.40,
       lpOverride: false,
       conditionChecks: {
-        ldr: true,
         float: true,
         lvd: true
       },
-      daylightSafetyEnabled: true,
       floatUp: false
     };
 
@@ -654,21 +605,10 @@
       return Number.isFinite(n) ? n.toFixed(digits) : "--";
     }
 
-    function normalizeDaylight(value) {
-      if (!valueExists(value)) return "UNKNOWN";
-      if (typeof value === "boolean") return value ? "DAY" : "NIGHT";
-      if (typeof value === "number") return value !== 0 ? "DAY" : "NIGHT";
-      const v = String(value).trim().toUpperCase();
-      if (["DAY", "LIGHT", "BRIGHT", "SUN", "SUNLIGHT", "TRUE", "1", "ON"].includes(v)) return "DAY";
-      if (["NIGHT", "DARK", "FALSE", "0", "OFF"].includes(v)) return "NIGHT";
-      return v;
-    }
-
-    function buildConditionChecks(data) {
+        function buildConditionChecks(data) {
       const nested = firstDefined(data, ["conditionChecks", "checks"], null);
       if (nested && typeof nested === "object") {
         return {
-          ldr: toBool(firstDefined(nested, ["ldr", "ldrCheck", "ldr_check"], true), true),
           float: toBool(firstDefined(nested, ["float", "floatCheck", "float_check"], true), true),
           lvd: toBool(firstDefined(nested, ["lvd", "lvdCheck", "lvd_check"], true), true)
         };
@@ -676,7 +616,6 @@
 
       const oldNested = firstDefined(data, ["sensorStates", "sensor_states"], null);
       return {
-        ldr: toBool(firstDefined(data, ["ldrCheck", "ldr_check", "daylightSafetyEnabled"], oldNested ? oldNested.ldr : true), true),
         float: toBool(firstDefined(data, ["floatCheck", "float_check"], oldNested ? oldNested.float : true), true),
         lvd: toBool(firstDefined(data, ["lvdCheck", "lvd_check"], oldNested ? oldNested.battery : true), true)
       };
@@ -708,11 +647,6 @@
       setChecked("pump1Switch", pump1);
       setChecked("pump2Switch", pump2);
 
-      const daylight = normalizeDaylight(firstDefined(data, ["daylight", "lightState", "daylightConfirmed", "lightConfirmed"], undefined));
-      const ldr = firstDefined(data, ["ldr", "lightValue", "ldrRaw", "ldr_raw"], "--");
-      setText("homeLdrState", daylight);
-      setText("homeLdrValue", "LDR: " + (valueExists(ldr) ? ldr : "--"));
-
       const floatRaw = firstDefined(data, ["floatUp", "floatSwitchUp", "floatState", "tankFloat", "tankFull", "tank_full"], undefined);
       const tankRaw = firstDefined(data, ["tank", "tankStatus", "tank_status"], undefined);
 
@@ -739,18 +673,14 @@
 
       const lvd = firstDefined(data, ["lvd", "lowVoltageDisconnect"], undefined);
       const mvr = firstDefined(data, ["mvr", "minimumVoltageRestart"], undefined);
-      const daylightThreshold = firstDefined(data, ["daylightThreshold", "ldrThreshold", "ldr_threshold"], undefined);
       const minFlow = firstDefined(data, ["minFlow", "minimumFlow", "min_flow"], undefined);
-      const daylightSafetyEnabled = toBool(firstDefined(data, ["daylightSafetyEnabled", "daylight_enabled", "daylightControlEnabled", "ldrCheck", "ldr_check"], true), true);
       const lpOverride = toBool(firstDefined(data, ["lpOverride", "lp_override", "lpPumpOverride"], false), false);
 
       setText("adminBatteryReadout", formatValue(battery, 2) + " V");
       setText("lvdReadout", valueExists(lvd) ? formatValue(lvd, 2) + " V" : "-- V");
       setText("mvrReadout", valueExists(mvr) ? formatValue(mvr, 2) + " V" : "-- V");
-      setText("lightThresholdReadout", valueExists(daylightThreshold) ? daylightThreshold : "--");
       setText("minFlowReadout", valueExists(minFlow) ? formatValue(minFlow, 2) + " GPM" : "-- GPM");
 
-      updateDaylightControlDisplay(daylightSafetyEnabled);
       updateOverrideDisplay("lp", lpOverride);
       updateConditionDisplays(buildConditionChecks(data));
 
@@ -772,10 +702,6 @@
         document.getElementById("mvrSlider").value = Number(mvr).toFixed(1);
       }
 
-      if (valueExists(daylightThreshold) &&
-          document.activeElement !== document.getElementById("daylightThresholdInput")) {
-        document.getElementById("daylightThresholdInput").value = daylightThreshold;
-      }
     }
 
     function updateAdminModeDisplay(enabled) {
@@ -897,87 +823,7 @@
       }
     }
 
-    function updateDaylightControlDisplay(enabled) {
-      setChecked("daylightEnableSwitch", enabled);
-      const statusEl = document.getElementById("daylightControlStatus");
-      if (statusEl) {
-        statusEl.textContent = "Protection: " + (enabled ? "ENABLED" : "DISABLED");
-        statusEl.className = enabled ? "state-good" : "state-warn";
-      }
-    }
-
-    function previewDaylightThreshold() {
-      const threshold = document.getElementById("daylightThresholdInput").value;
-      setText("daylightNotice", "New daylight threshold ready to apply: " + threshold);
-    }
-
-    async function setDaylightControl(enabled) {
-      const confirmationText = enabled
-        ? "Enable daylight threshold protection?"
-        : "Disable daylight threshold protection? Pumps may no longer be blocked based on the LDR state.";
-
-      if (!window.confirm(confirmationText)) {
-        setChecked("daylightEnableSwitch", !enabled);
-        return;
-      }
-
-      if (demoMode) {
-        lastData.daylightSafetyEnabled = enabled;
-        updatePage(lastData);
-        setText("daylightNotice", enabled ? "Demo mode: daylight protection enabled." : "Demo mode: daylight protection disabled.");
-        return;
-      }
-
-      try {
-        const response = await fetch("/admin/daylight", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ enabled })
-        });
-        if (!response.ok) throw new Error("ESP32 returned HTTP " + response.status);
-        setText("daylightNotice", enabled ? "Daylight protection enabled." : "Daylight protection disabled.");
-        getSensorData();
-      } catch (error) {
-        setChecked("daylightEnableSwitch", !enabled);
-        setText("daylightNotice", "Firmware still needs the /admin/daylight route before this switch can control the real setting.");
-      }
-    }
-
-    async function saveDaylightThreshold() {
-      const threshold = Number(document.getElementById("daylightThresholdInput").value);
-      if (!Number.isFinite(threshold) || threshold < 0 || threshold > 4095) {
-        setText("daylightNotice", "Enter a valid LDR threshold from 0 to 4095.");
-        return;
-      }
-
-      if (demoMode) {
-        lastData.daylightThreshold = threshold;
-        updatePage(lastData);
-        setText("daylightNotice", "Demo mode: daylight threshold saved as " + threshold + ".");
-        return;
-      }
-
-      try {
-        const response = await fetch("/admin/daylight", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ threshold })
-        });
-        if (!response.ok) throw new Error("ESP32 returned HTTP " + response.status);
-        setText("daylightNotice", "Daylight threshold updated to " + threshold + ".");
-        getSensorData();
-      } catch (error) {
-        setText("daylightNotice", "Firmware still needs the /admin/daylight route before this value can be saved.");
-      }
-    }
-
     const conditionConfig = {
-      ldr: {
-        switchId: "ldrCheckSwitch",
-        statusId: "ldrCheckStatus",
-        name: "Light / Daylight Check",
-        statusPrefix: "Daylight safety check"
-      },
       float: {
         switchId: "floatCheckSwitch",
         statusId: "floatCheckStatus",
@@ -1020,7 +866,6 @@
       if (demoMode) {
         if (!lastData.conditionChecks) lastData.conditionChecks = buildConditionChecks(lastData);
         lastData.conditionChecks[check] = enabled;
-        if (check === "ldr") lastData.daylightSafetyEnabled = enabled;
         updatePage(lastData);
         setText("conditionNotice", config.name + " is now " + (enabled ? "enabled." : "disabled.") + " (demo mode)");
         return;
@@ -1135,7 +980,6 @@
       }
     }
 
-
     async function resetDefaults() {
       const confirmed = window.confirm("Reset Admin settings to firmware defaults? This should restore LVD, MVR, condition checks, pump enable settings, and LP override to their default values.");
       if (!confirmed) return;
@@ -1144,7 +988,6 @@
         lastData.lvd = demoData.lvd;
         lastData.mvr = demoData.mvr;
         lastData.conditionChecks = { ...demoData.conditionChecks };
-        lastData.daylightSafetyEnabled = demoData.daylightSafetyEnabled;
         lastData.lpOverride = false;
         lastData.pump1Enabled = true;
         lastData.pump2Enabled = true;
