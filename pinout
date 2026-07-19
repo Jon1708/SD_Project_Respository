@@ -6,13 +6,11 @@
 // ---------- Onboard LED ----------
 #define LED_PIN             GPIO_NUM_2
 
-// ---------- RGB LED ----------
-#define RGB_RED_PIN         GPIO_NUM_21
-#define RGB_GREEN_PIN       GPIO_NUM_19
-#define RGB_BLUE_PIN        GPIO_NUM_18
-
 // ---------- Temperature Sensor (DS18B20, 1-Wire) ----------
-#define TEMP_SENSOR_PIN     GPIO_NUM_25
+#define TEMP_SENSOR_PIN     GPIO_NUM_21
+
+// ---------- Voice Audio (LM386 module via I2S built-in DAC) ----------
+#define AUDIO_DAC_PIN       GPIO_NUM_25  // DAC1 - freed by moving the temp sensor to GPIO21
 
 // ---------- Pumps (BTS7002 high-side switches) ----------
 #define LP_in               GPIO_NUM_17  // Pump 1 (low-pressure) - U3
@@ -33,7 +31,6 @@
 
 // ---------- ADC1 Channels ----------
 #define BAT_ADC_CHANNEL     ADC_CHANNEL_6   // GPIO34 - battery voltage
-#define LDR_ADC_CHANNEL     ADC_CHANNEL_7   // GPIO35 - light sensor
 #define IS_1_2_CHANNEL      ADC_CHANNEL_4   // GPIO32 - current sense U1+U2
 #define TDS_ADC_CHANNEL     ADC_CHANNEL_5   // GPIO33 - TDS sensor
 
