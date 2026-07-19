@@ -199,8 +199,8 @@ static float g_current_amps = 0.0f;
 static bool g_current_valid = false;
 
 // ---------- Flow Sensor Variables ----------
-static float g_flow1_lpm = 0.0f;
-static float g_flow2_lpm = 0.0f;
+static float g_flow1_gpm = 0.0f;
+static float g_flow2_gpm = 0.0f;
 
 // ---------- Float Switch Variables ----------
 static bool g_tank_full = false;
@@ -551,14 +551,14 @@ static const char html_page[] =
 "        <div class=\"sensor-card\">\n"
 "          <div class=\"icon\">🌊</div>\n"
 "          <h3>Flow 1</h3>\n"
-"          <p class=\"value\" id=\"flowValue\">-- L/min</p>\n"
+"          <p class=\"value\" id=\"flowValue\">-- GPM</p>\n"
 "          <p class=\"label\">Input Water Flow</p>\n"
 "        </div>\n"
 "\n"
 "        <div class=\"sensor-card\">\n"
 "          <div class=\"icon\">🚰</div>\n"
 "          <h3>Flow 2</h3>\n"
-"          <p class=\"value\" id=\"homeFlow2Value\">-- L/min</p>\n"
+"          <p class=\"value\" id=\"homeFlow2Value\">-- GPM</p>\n"
 "          <p class=\"label\">Output Water Flow</p>\n"
 "        </div>\n"
 "\n"
@@ -647,7 +647,7 @@ static const char html_page[] =
 "          <div class=\"setting-row\"><span>Low-Voltage Disconnect (LVD)</span><strong id=\"lvdReadout\">-- V</strong></div>\n"
 "          <div class=\"setting-row\"><span>Minimum Voltage Restart (MVR)</span><strong id=\"mvrReadout\">-- V</strong></div>\n"
 "          <div class=\"setting-row\"><span>Daylight Threshold</span><strong id=\"lightThresholdReadout\">--</strong></div>\n"
-"          <div class=\"setting-row\"><span>Minimum Flow</span><strong id=\"minFlowReadout\">-- L/min</strong></div>\n"
+"          <div class=\"setting-row\"><span>Minimum Flow</span><strong id=\"minFlowReadout\">-- GPM</strong></div>\n"
 "        </div>\n"
 "\n"
 "        <div class=\"info-card\">\n"
@@ -905,8 +905,8 @@ static const char html_page[] =
 "\n"
 "      setText(\"tdsValue\", formatValue(tds, 1) + \" ppm\");\n"
 "      setText(\"tempValue\", formatValue(temperature, 1) + \" °F\");\n"
-"      setText(\"flowValue\", formatValue(flow1, 2) + \" L/min\");\n"
-"      setText(\"homeFlow2Value\", formatValue(flow2, 2) + \" L/min\");\n"
+"      setText(\"flowValue\", formatValue(flow1, 2) + \" GPM\");\n"
+"      setText(\"homeFlow2Value\", formatValue(flow2, 2) + \" GPM\");\n"
 "      setText(\"batteryValue\", formatValue(battery, 2) + \" V\");\n"
 "\n"
 "      const n1 = Number(flow1);\n"
@@ -936,7 +936,7 @@ static const char html_page[] =
 "        const tankText = String(tankRaw).toUpperCase();\n"
 "        setText(\"tankStatusValue\", tankText);\n"
 "        setText(\"tankStatusDetail\", \"Float Switch: state not provided\");\n"
-"        setClass(\"tankStatusValue\", \"value \" + ([\"EMPTY\", \"FULL\"].includes(tankText) ? \"state-good\" : \"state-warn\"));\n"
+"        setClass(\"tankStatusValue\", \"value \" + ([\"OK\", \"FULL\"].includes(tankText) ? \"state-good\" : \"state-warn\"));\n"
 "      } else {\n"
 "        setText(\"tankStatusValue\", \"UNKNOWN\");\n"
 "        setText(\"tankStatusDetail\", \"Float Switch: no data\");\n"
@@ -959,7 +959,7 @@ static const char html_page[] =
 "      setText(\"lvdReadout\", valueExists(lvd) ? formatValue(lvd, 2) + \" V\" : \"-- V\");\n"
 "      setText(\"mvrReadout\", valueExists(mvr) ? formatValue(mvr, 2) + \" V\" : \"-- V\");\n"
 "      setText(\"lightThresholdReadout\", valueExists(daylightThreshold) ? daylightThreshold : \"--\");\n"
-"      setText(\"minFlowReadout\", valueExists(minFlow) ? formatValue(minFlow, 2) + \" L/min\" : \"-- L/min\");\n"
+"      setText(\"minFlowReadout\", valueExists(minFlow) ? formatValue(minFlow, 2) + \" GPM\" : \"-- GPM\");\n"
 "\n"
 "      updateDaylightControlDisplay(daylightSafetyEnabled);\n"
 "      updateOverrideDisplay(\"lp\", lpOverride);\n"
@@ -2097,8 +2097,8 @@ static void display_water_mode(void)
         tds_valid     = g_tds_valid;
         current_amps  = g_current_amps;
         current_valid = g_current_valid;
-        flow1         = g_flow1_lpm;
-        flow2         = g_flow2_lpm;
+        flow1         = g_flow1_gpm;
+        flow2         = g_flow2_gpm;
         xSemaphoreGive(state_mutex);
     }
 
@@ -2123,18 +2123,18 @@ static void display_water_mode(void)
     else
         snprintf(line, sizeof(line), "TDS:  ERROR");
     oled_draw_string(0, 25, line);
-
+/*
     if (current_valid)
         snprintf(line, sizeof(line), "CURR: %.2fA", current_amps);
     else
         snprintf(line, sizeof(line), "CURR: ERROR");
+    oled_draw_string(0, 34, line); 
+*/
+    snprintf(line, sizeof(line), "F1:%.1f F2:%.1f", flow1, flow2);
     oled_draw_string(0, 34, line);
 
-    snprintf(line, sizeof(line), "F1:%.1f F2:%.1f", flow1, flow2);
-    oled_draw_string(0, 43, line);
-
     snprintf(line, sizeof(line), "RATIO: %d%%:%d%%", ratio, 100 - ratio);
-    oled_draw_string(0, 52, line);
+    oled_draw_string(0, 43, line);
 
     oled_draw_page_dots(1);
     oled_update_display();
@@ -2167,8 +2167,8 @@ static void display_manual_mode(void)
         },
         {
             "SENSOR CHECKS 2/4",
-            "LDR CHK: DAYLIGHT",
-            "PUMP NEEDS SUN",
+            //"LDR CHK: DAYLIGHT",
+           // "PUMP NEEDS SUN",
             "FLT CHK: TANK LVL",
             "PUMP NEEDS FULL",
             "DISABLE=BYPASS",
@@ -2245,7 +2245,7 @@ static void display_home_mode(void)
 
     if (xSemaphoreTake(state_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
         bv        = g_battery_voltage;
-        daylight  = g_daylight_confirmed;
+       // daylight  = g_daylight_confirmed;
         lp_pump      = g_lp_pump_running;
         hp_pump     = g_hp_pump_running;
         tank_full = g_tank_full;
@@ -2262,7 +2262,7 @@ static void display_home_mode(void)
 
     // Yellow zone: title + daylight status
     oled_draw_string(0, 4, "F.R.O.G.S");
-    oled_draw_string(78, 4, daylight ? "DAY" : "NIGHT");
+   // oled_draw_string(78, 4, daylight ? "DAY" : "NIGHT");
 
     // Blue zone: content
     snprintf(line, sizeof(line), "BATT: %.2fV", bv);
@@ -2273,9 +2273,9 @@ static void display_home_mode(void)
     oled_draw_string(0, 26, line);
 
     snprintf(line, sizeof(line), "TANK: %-4s",
-             tank_full ? "FULL" : "OK");
+             tank_full ? "FULL" : "LOW");
     oled_draw_string(0, 36, line);
-
+/*
     if (!daylight) {
         oled_draw_string(0, 46, "BLOCKED: NIGHT");
     } else if (bv < lvd) {
@@ -2287,7 +2287,7 @@ static void display_home_mode(void)
     } else {
         oled_draw_string(0, 46, "SYSTEM OK");
     }
-
+*/
     oled_draw_page_dots(0);
     oled_update_display();
 }
@@ -2741,7 +2741,7 @@ void adc_task(void *pvParameters)
             }
         }
         
-
+        /*
         // --- Current Sense ADC (IS 1+2, GPIO32) ---
         float current_amps = 0.0f;
         int is_raw = 0;
@@ -2759,14 +2759,14 @@ void adc_task(void *pvParameters)
         else {
             ESP_LOGE(TAG_ADC, "Current sense ADC read failed");
             }
-        
+        */
         // Update other global variables
         if (xSemaphoreTake(state_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
             g_adc_raw = raw;
             g_battery_voltage = battery_voltage;
             g_ldr_raw = ldr_avg;
-            g_current_amps = current_amps;
-            g_current_valid = current_valid;
+            // g_current_amps = current_amps;
+            // g_current_valid = current_valid;
 
             if (ret != ESP_OK) {
                 g_tds_valid = false;
@@ -2812,7 +2812,7 @@ void oled_task(void *pvParameters)
         // Display based on current mode
         switch (g_display_mode) {
             case MODE_WATER:          display_water_mode();    break;
-            case MODE_SYSTEM:         display_system_mode();   break;
+           // case MODE_SYSTEM:         display_system_mode();   break;
             case MODE_ADMIN_PREVIEW:  display_admin_preview(); break;
             case MODE_WEBPAGE:        display_webpage_preview(); break;
             case MODE_MANUAL_PREVIEW: display_manual_preview(); break;
@@ -3154,7 +3154,6 @@ void flow_task(void *pvParameters)
 }
 
 
-
 // -----------TDS to ppm Conversion--------
 
 
@@ -3162,7 +3161,7 @@ void flow_task(void *pvParameters)
 float tds_calculate_ppm(int adc_raw, float temp_c)
 {
     // Convert ADC to voltage (ESP32 is 12-bit)
-    float voltage = adc_raw_to_mv(adc_raw) / 1000.0f;
+    float voltage = (adc_raw / 4095.0f) * 3.3f;
 
     // Temperature compensation (from datasheet)
     float compensation_coefficient = 1.0f + 0.02f * (temp_c - 25.0f);
@@ -3345,8 +3344,8 @@ static esp_err_t data_get_handler(httpd_req_t *req)
         battery = g_battery_voltage;
         temp_c = g_temp_c;
         tds = g_tds_ppm;
-        flow1 = g_flow1_lpm;
-        flow2 = g_flow2_lpm;
+        flow1 = g_flow1_gpm;
+        flow2 = g_flow2_gpm;
         lp_pump = g_lp_pump_running;
         hp_pump = g_hp_pump_running;
         temp_valid = g_temp_valid;
