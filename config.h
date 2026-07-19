@@ -1,68 +1,44 @@
 #pragma once
 
-// ---------- OLED ----------
-#define OLED_I2C_ADDR       0x3C
-#define OLED_WIDTH          128
-#define OLED_HEIGHT         64
+#include "driver/gpio.h"
+#include "esp_adc/adc_oneshot.h"
 
-// ---------- ADC ----------
-#define ADC_ATTEN           ADC_ATTEN_DB_12
-#define ADC_SAMPLES         16
-#define LDR_ADC_SAMPLES     16
-#define TDS_ADC_SAMPLES     16
+// ---------- Onboard LED ----------
+#define LED_PIN             GPIO_NUM_2
 
-// ---------- Battery Voltage ----------
-#define BAT_CAL             1.065f   // Calibration multiplier for voltage divider
-#define BAT_V_MIN           9.0f
-#define BAT_V_MAX           15.0f
+// ---------- RGB LED ----------
+#define RGB_GREEN_PIN       GPIO_NUM_19
+#define RGB_BLUE_PIN        GPIO_NUM_18
 
-// ---------- LVD / MVR (LiFePO4) ----------
-#define DEFAULT_LVD         12.0f
-#define DEFAULT_MVR         12.8f
-#define LVD_MIN             10.0f
-#define LVD_MAX             13.0f
-#define MVR_MIN             11.0f
-#define MVR_MAX             14.0f
-#define MIN_HYSTERESIS      0.5f
-#define VOLTAGE_STEP        0.1f
+// ---------- Temperature Sensor (DS18B20, 1-Wire) ----------
+#define TEMP_SENSOR_PIN     GPIO_NUM_21
 
-// ---------- Light Sensor ----------
-#define LDR_THRESHOLD       1500     // ADC reading above this = daylight
-#define LIGHT_ON_DELAY_MS   10000    // Sustained daylight before pump allowed
-#define LIGHT_OFF_DELAY_MS  15000    // Sustained darkness before pump blocked
+// ---------- Pumps (BTS7002 high-side switches) ----------
+#define LP_in               GPIO_NUM_17  // Pump 1 (low-pressure) - U3
+#define PUMP2_PIN           GPIO_NUM_16  // Pump 2 - U1
+#define DEN_1_3_PIN         GPIO_NUM_13  // Diagnosis enable U1+U3
 
 // ---------- Flow Sensors ----------
-#define FLOW_CAL            371.0f    // F = 98 * Q (Hz per L/min)
-#define FLOW_SAMPLE_MS      1000     // Pulse counting window
+#define FEED_FLOW_PIN       GPIO_NUM_27  // Feed flow (input)
+#define PRODUCT_FLOW_PIN    GPIO_NUM_26  // Product flow (output)
 
-// ---------- Pumps ----------
-#define PUMP2_DELAY_MS      10000    // Delay after pump 1 start before pump 2 turns on
+// ---------- Float Switch ----------
+#define FLOAT_SW_PIN        GPIO_NUM_14  // NC switch: HIGH = open = tank full
 
 // ---------- Joystick ----------
-#define JOY_CENTER          2048
-#define JOY_DEADZONE        500
-#define JOY_INITIAL_DELAY_MS  400
-#define JOY_REPEAT_RATE_MS    200
+#define JOY_SW_PIN          GPIO_NUM_22
+#define JOY_VRX_CHANNEL     ADC_CHANNEL_0   // GPIO36 (ADC1)
+#define JOY_VRY_CHANNEL     ADC_CHANNEL_3   // GPIO39 (ADC1)
 
-// ---------- RGB LED PWM ----------
-#define LEDC_TIMER          LEDC_TIMER_0
-#define LEDC_MODE           LEDC_LOW_SPEED_MODE
-#define LEDC_RED_CHANNEL    LEDC_CHANNEL_0
-#define LEDC_GREEN_CHANNEL  LEDC_CHANNEL_1
-#define LEDC_BLUE_CHANNEL   LEDC_CHANNEL_2
-#define LEDC_DUTY_RES       LEDC_TIMER_8_BIT
-#define LEDC_FREQUENCY      5000
+// ---------- ADC1 Channels ----------
+#define BAT_ADC_CHANNEL     ADC_CHANNEL_6   // GPIO34 - battery voltage
+#define LDR_ADC_CHANNEL     ADC_CHANNEL_7   // GPIO35 - light sensor
+#define IS_1_2_CHANNEL      ADC_CHANNEL_4   // GPIO32 - current sense U1+U2
+#define TDS_ADC_CHANNEL     ADC_CHANNEL_5   // GPIO33 - TDS sensor
 
-// ---------- Admin / UI ----------
-#define ADMIN_TIMEOUT_MS    60000
-#define DEBOUNCE_DELAY_MS   50
-
-// ---------- NVS ----------
-#define NVS_NAMESPACE       "voltage"
-#define NVS_KEY_LVD         "lvd"
-#define NVS_KEY_MVR         "mvr"
-#define NVS_KEY_LDR_CHECK   "ldr_chk"
-#define NVS_KEY_FLOAT_CHECK "flt_chk"
-#define NVS_KEY_LVD_CHECK   "lvd_chk"
-#define NVS_KEY_P1_ENABLE   "p1_en"
-#define NVS_KEY_P2_ENABLE   "p2_en"
+// ---------- I2C (OLED) ----------
+#define I2C_MASTER_SDA_IO   GPIO_NUM_23
+#define I2C_MASTER_SCL_IO   GPIO_NUM_15
+#define I2C_MASTER_NUM      I2C_NUM_0
+#define I2C_MASTER_FREQ_HZ  100000
+#define I2C_TIMEOUT_MS      1000
